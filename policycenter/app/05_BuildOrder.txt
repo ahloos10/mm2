@@ -1,0 +1,86 @@
+================================================================================
+POWERAPPS BUILD ORDER
+Step-by-step sequence for building the app from scratch in PowerApps Studio
+================================================================================
+
+STEP 1 — Create a new Canvas App
+  - make.powerapps.com > Create > Canvas app from blank
+  - Name: "PolicyCenter Automation"
+  - Format: Tablet (1366x768)
+
+STEP 2 — Add all Cloud Flows as data sources
+  - Data (left panel) > Add data > Power Automate flows
+  - Add each flow:
+      PC_CreatePolicyNote
+      PC_ScreenScrape
+      PC_CreateActivity
+      PC_PolicyChange
+      PC_CancelPolicy
+      PC_IteratePolicyTerms
+      PC_BulkProducerChange
+      PC_MortgageeClause
+      PC_TrailingDocuments
+
+STEP 3 — Create the Header Component (file: 03_HeaderComponent.txt)
+  - Insert > New component > name: cmpHeader
+  - Add custom properties: ScreenTitle (Text), ShowBack (Boolean), PolicyNumber (Text)
+  - Build the controls inside the component per the file
+
+STEP 4 — Set App.OnStart (file: 01_App_OnStart.txt)
+  - Click "App" in the tree view
+  - Paste the OnStart formula
+
+STEP 5 — Add the use-case data collection to App.OnStart
+  - Add the ClearCollect(colUseCases, ...) block from 02_HomeScreen.txt
+    to the end of App.OnStart
+
+STEP 6 — Build HomeScreen (file: 02_HomeScreen.txt)
+  - Rename Screen1 to "HomeScreen"
+  - Add all controls per the file
+  - Set gallery Items to colUseCases
+
+STEP 7 — Add remaining screens (one per use case)
+  - New screen (blank) for each:
+      CreateNoteScreen
+      ScreenScrapeScreen
+      CreateActivityScreen
+      PolicyChangeScreen
+      CancelPolicyScreen
+      PolicyTermsScreen
+      BulkProducerScreen
+      MortgageeScreen
+      TrailingDocsScreen
+
+STEP 8 — Build each screen (file: 04_AllScreens_Formulas.txt)
+  For each screen:
+  a. Insert cmpHeader at X:0 Y:0 Width:Parent.Width Height:64
+     Set ScreenTitle, ShowBack:true, PolicyNumber:varActivePolicyNumber
+  b. Add rectBackground: X:0 Y:64 Width:Parent.Width Height:Parent.Height-64
+     Fill: First(colTheme).Secondary
+  c. Add a white card rectangle: X:32 Y:80 Width:Parent.Width-64 Height:auto
+     Fill:White  BorderColor:First(colTheme).Border  BorderThickness:1  Radius:8
+  d. Add input controls per the screen section in the file
+  e. Add btnSubmit with the OnSelect formula from the file
+     Fill:First(colTheme).Primary  Color:White  Radius:4
+  f. Add the spinner overlay (shared section at bottom of file)
+
+STEP 9 — Test
+  - Preview the app (F5)
+  - Enter a policy number on HomeScreen and click "Set Policy"
+  - Navigate to Screen Scrape first (read-only — safe to test)
+  - Work through each use case on a test policy
+
+STEP 10 — Publish
+  - File > Save > Publish
+  - Share with your team via the Share button
+
+================================================================================
+NAMING CONVENTIONS USED THROUGHOUT
+================================================================================
+  Variables:    var prefix          e.g. varActivePolicyNumber
+  Collections:  col prefix          e.g. colUseCases, colTheme
+  Controls:     type prefix         e.g. txtPolicyNumber, btnSubmit, lblStatus
+  Screens:      PascalCase + Screen e.g. CreateNoteScreen
+  Components:   cmp prefix          e.g. cmpHeader
+  Flows:        PC_ prefix          e.g. PC_CreatePolicyNote
+================================================================================

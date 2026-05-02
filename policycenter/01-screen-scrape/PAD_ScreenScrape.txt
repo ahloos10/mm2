@@ -1,0 +1,99 @@
+# Power Automate Desktop Flow: Screen Scrape All Fields on All Policy Screens
+#
+# INPUT VARIABLES:
+#   PolicyNumber   - Text
+#   PCBaseURL      - Text
+#
+# OUTPUT VARIABLES:
+#   ScrapedDataJSON  - Text (JSON string of all captured field values)
+#
+# DESCRIPTION:
+#   Navigates to a policy and iterates through each major tab/screen,
+#   capturing all visible field labels and values into a data table,
+#   then serializes to JSON for return to the Cloud Flow.
+
+# -- STEP 1: Launch Browser --
+WebBrowser.Launch BrowserType: WebBrowser.BrowserType.Chrome Url: $'''%PCBaseURL%''' WindowState: WebBrowser.WindowState.Maximized ClearCache: False ClearCookies: False WaitForPageToLoad: True PopupsHandling: WebBrowser.PopupWindowHandling.DoNotHandle BrowserInstance=> BrowserInstance
+
+# -- STEP 2: Search and open policy --
+WebBrowser.GoToWebPage Browser: BrowserInstance Url: $'''%PCBaseURL%/PolicyFile.do''' WaitForPageToLoad: True
+WebAutomation.PopulateTextField BrowserInstance: BrowserInstance Control: appmask['PolicySearch_PolicyNumber'] Text: PolicyNumber SimulateTyping: False UnfocusAfterPopulate: False WaitForPageToLoad: False
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['PolicySearch_SearchButton'] WaitForPageToLoad: True
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['PolicySearch_FirstResult'] WaitForPageToLoad: True
+
+# -- STEP 3: Initialize data table to store results --
+DataTable.Create DataTable=> PolicyData
+DataTable.AddColumn DataTable: PolicyData ColumnName: $'''Tab''' Index: 0
+DataTable.AddColumn DataTable: PolicyData ColumnName: $'''FieldLabel''' Index: 1
+DataTable.AddColumn DataTable: PolicyData ColumnName: $'''FieldValue''' Index: 2
+
+# -- STEP 4: Define tabs to scrape --
+# Add or remove tab names to match your PolicyCenter configuration
+SET TabList TO ["Summary", "Policy Info", "Insured", "Property", "Coverages", "Modifiers", "Notes", "History", "Documents", "Activities"]
+
+# -- STEP 5: Loop through each tab --
+LOOP FOREACH CurrentTab IN TabList
+    # Click the tab by its visible text
+    WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['Policy_Tab_%CurrentTab%'] WaitForPageToLoad: True
+
+    # Get all label elements on the current screen
+    # Labels in PolicyCenter typically use <span> or <div> with class "gw-label" or similar
+    WebAutomation.GetDetailsOfElement BrowserInstance: BrowserInstance Control: appmask['Screen_AllLabels_%CurrentTab%'] Attribute: $'''innertext''' AttributeValue=> LabelsRaw
+
+    # Get all input/value elements
+    WebAutomation.GetDetailsOfElement BrowserInstance: BrowserInstance Control: appmask['Screen_AllValues_%CurrentTab%'] Attribute: $'''innertext''' AttributeValue=> ValuesRaw
+
+    # Split into lists (adjust delimiter based on your PC rendering)
+    Text.Split Text: LabelsRaw Delimiter: $'''\n''' Result=> LabelList
+    Text.Split Text: ValuesRaw Delimiter: $'''\n''' Result=> ValueList
+
+    # Loop and pair labels with values
+    Variables.Set Name: RowIndex Value: 0
+    LOOP FOREACH LabelItem IN LabelList
+        IF RowIndex < LabelList.Count THEN
+            Variables.Set Name: CurrentValue Value: %ValueList[RowIndex]%
+        ELSE
+            Variables.Set Name: CurrentValue Value: $''''''
+        END
+        DataTable.AddRow DataTable: PolicyData RowToAdd: [CurrentTab, LabelItem, CurrentValue]
+        Variables.Increase Name: RowIndex IncrementValue: 1
+    END
+END
+
+# -- STEP 6: Convert data table to JSON --
+# Build JSON array manually from the data table
+Variables.Set Name: ScrapedDataJSON Value: $'''['''
+Variables.Set Name: FirstRow Value: True
+LOOP FOREACH DataRow IN PolicyData
+    IF FirstRow = False THEN
+        Variables.Set Name: ScrapedDataJSON Value: $'''%ScrapedDataJSON%,'''
+    END
+    Variables.Set Name: ScrapedDataJSON Value: $'''%ScrapedDataJSON%{"tab":"%DataRow['Tab']%","field":"%DataRow['FieldLabel']%","value":"%DataRow['FieldValue']%"}'''
+    Variables.Set Name: FirstRow Value: False
+END
+Variables.Set Name: ScrapedDataJSON Value: $'''%ScrapedDataJSON%]'''
+
+ON BLOCK ERROR
+    Variables.Set Name: ScrapedDataJSON Value: $'''{"error":"%LastError%"}'''
+END
+
+
+# ELEMENT CAPTURE NOTES:
+# This flow requires one of two approaches for capturing all fields:
+#
+# APPROACH A (Recommended - CSS-based bulk capture):
+#   Use WebAutomation.ExecuteJavascript to extract all label/value pairs at once:
+#   Script: "return Array.from(document.querySelectorAll('.gw-label')).map(e => e.innerText).join('\n')"
+#   Adjust CSS selector to match your PC theme's label class.
+#
+# APPROACH B (Element recorder per field):
+#   Capture each known field individually using the recorder.
+#   More reliable but requires upfront effort per screen.
+#
+# JavaScript injection example for PAD:
+#   WebAutomation.ExecuteJavascript BrowserInstance: BrowserInstance Javascript: $'''
+#     return Array.from(document.querySelectorAll('[class*="label"]'))
+#       .map(e => e.innerText.trim())
+#       .filter(t => t.length > 0)
+#       .join('\n');
+#   ''' Result=> LabelsRaw

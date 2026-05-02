@@ -1,0 +1,29 @@
+# PowerApps - Update Trailing Documents
+# CONTROLS: txtPolicyNumber, txtDocumentName, ddlStatus, dateReceived, txtNotes, btnSubmit, lblStatus
+
+# -- ddlStatus Items --
+["Received", "Waived", "Pending", "Not Required", "Requested"]
+
+# -- dateReceived Visible (only show when status is Received) --
+ddlStatus.Selected.Value = "Received"
+
+# -- btnSubmit OnSelect --
+If(
+    IsBlank(txtPolicyNumber.Text) || IsBlank(txtDocumentName.Text),
+    UpdateContext({varStatusMessage: "Policy Number and Document Name are required."}),
+    UpdateContext({varIsLoading: true, varStatusMessage: ""});
+    Set(
+        varResult,
+        PC_TrailingDocuments.Run(
+            txtPolicyNumber.Text,
+            txtDocumentName.Text,
+            ddlStatus.Selected.Value,
+            If(ddlStatus.Selected.Value = "Received", Text(dateReceived.SelectedDate, "mm/dd/yyyy"), ""),
+            txtNotes.Text
+        )
+    );
+    UpdateContext({varIsLoading: false, varStatusMessage: varResult.Result})
+);
+
+# -- lblStatus Color --
+If(StartsWith(varStatusMessage, "Success"), RGBA(0,128,0,1), RGBA(200,0,0,1))

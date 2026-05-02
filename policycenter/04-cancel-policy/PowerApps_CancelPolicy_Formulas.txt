@@ -1,0 +1,32 @@
+# PowerApps - Cancel Policy
+# CONTROLS: txtPolicyNumber, ddlSource, ddlReason, dateEffective, ddlRefund, btnSubmit, lblStatus, lblJobNumber
+
+# -- ddlSource Items --
+["Insured", "Agency", "Carrier"]
+
+# -- ddlReason Items --
+["Insured Request", "Non-Payment", "Underwriting", "Fraud", "Other"]
+
+# -- ddlRefund Items --
+["Pro Rata", "Short Rate", "Flat"]
+
+# -- btnSubmit OnSelect --
+If(
+    IsBlank(txtPolicyNumber.Text),
+    UpdateContext({varStatusMessage: "Policy Number is required."}),
+    UpdateContext({varIsLoading: true, varStatusMessage: ""});
+    Set(
+        varResult,
+        PC_CancelPolicy.Run(
+            txtPolicyNumber.Text,
+            ddlReason.Selected.Value,
+            ddlSource.Selected.Value,
+            Text(dateEffective.SelectedDate, "mm/dd/yyyy"),
+            ddlRefund.Selected.Value
+        )
+    );
+    UpdateContext({varIsLoading: false, varStatusMessage: varResult.Result, varJobNumber: varResult.JobNumber})
+);
+
+# -- lblStatus Color --
+If(StartsWith(varStatusMessage, "Success"), RGBA(0,128,0,1), RGBA(200,0,0,1))

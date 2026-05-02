@@ -1,0 +1,16 @@
+{
+  "name": "PC_BulkProducerChange",
+  "description": "Accepts a list of policy numbers and a new producer, runs PAD flow to change producer on each policy.",
+  "trigger": { "type": "PowerApps", "inputs": { "PolicyListJSON": "string", "NewProducerName": "string", "NewProducerCode": "string", "EffectiveDate": "string" } },
+  "steps": [
+    { "step": 1, "action": "Run a flow built with Power Automate Desktop", "flow": "PAD_BulkProducerChange", "inputs": { "PolicyListJSON": "@triggerBody()['PolicyListJSON']", "NewProducerName": "@triggerBody()['NewProducerName']", "NewProducerCode": "@triggerBody()['NewProducerCode']", "EffectiveDate": "@triggerBody()['EffectiveDate']", "PCBaseURL": "@parameters('PCBaseURL')" } },
+    {
+      "step": 2,
+      "action": "Parse JSON",
+      "name": "Parse Results",
+      "content": "@outputs('Run_PAD_BulkProducerChange')?['body/ResultsJSON']",
+      "schema": { "type": "array", "items": { "type": "object", "properties": { "policy": { "type": "string" }, "status": { "type": "string" }, "message": { "type": "string" } } } }
+    },
+    { "step": 3, "action": "Respond to PowerApps", "outputs": { "ResultsJSON": "@outputs('Run_PAD_BulkProducerChange')?['body/ResultsJSON']" } }
+  ]
+}

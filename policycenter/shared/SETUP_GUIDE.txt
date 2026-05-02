@@ -1,0 +1,139 @@
+================================================================================
+SETUP GUIDE — PolicyCenter Power Platform Automation Suite
+================================================================================
+Follow these steps to implement this solution on your work PC.
+================================================================================
+
+## PREREQUISITES
+
+1. Power Automate Desktop installed on your machine
+   - Download from Microsoft Store or via https://powerautomate.microsoft.com/desktop
+   - Sign in with your work Microsoft 365 account
+
+2. Power Automate Cloud access (flow.microsoft.com)
+   - Requires a Power Automate license (Per User or Per Flow)
+
+3. PowerApps access (make.powerapps.com)
+   - Requires a Power Apps license
+
+4. Unattended bot license OR attended session access
+   - Attended: You must be logged in and at your machine when flows run
+   - Unattended: Requires an unattended bot license and a dedicated machine/VM
+
+5. On-Premises Data Gateway (if your PolicyCenter is not cloud-hosted)
+   - Download and install from Microsoft
+   - Register it in Power Automate Cloud under Data > Gateways
+
+6. PolicyCenter access
+   - Your standard PolicyCenter login credentials
+   - Note your base URL: https://[yourcompany].guidewire.net/pc (or internal URL)
+
+--------------------------------------------------------------------------------
+## STEP 1: SET UP POWER AUTOMATE DESKTOP FLOWS
+
+For each PAD script in this package:
+
+a. Open Power Automate Desktop on your machine
+b. Click "+ New flow" and give it the name shown at the top of the script
+   (e.g., PAD_CreatePolicyNote)
+c. In the flow editor, click the "</>" (Script editor) button
+d. Paste the contents of the .txt file
+e. Save the flow
+
+IMPORTANT — Replace element selectors:
+- Every `appmask['...']` placeholder must be replaced with a real captured element
+- Open PolicyCenter in Chrome
+- In PAD, use Ctrl+Shift+A (Element Recorder) to capture each element
+- Click the element in the browser, then assign it to replace the appmask placeholder
+- Work through each step in the flow, capturing all elements
+
+--------------------------------------------------------------------------------
+## STEP 2: SET UP POWER AUTOMATE CLOUD FLOWS
+
+For each CloudFlow JSON in this package:
+
+a. Go to flow.microsoft.com
+b. Click "+ New flow" > "Instant cloud flow" > Triggered by PowerApps
+c. Name it exactly as shown in the JSON (e.g., PC_CreatePolicyNote)
+d. Add the action "Run a flow built with Power Automate Desktop"
+   - Select your PAD flow from Step 1
+   - Map each input parameter as shown in the JSON
+e. Add "Respond to a PowerApp or flow" as the last step
+   - Add the output variables shown in the JSON (e.g., Result, JobNumber)
+f. Save and test the flow
+
+Set the PCBaseURL:
+- In your solution, go to Solutions > [Your Solution] > Environment Variables
+- Add a text variable named "PCBaseURL" with your PolicyCenter URL
+
+--------------------------------------------------------------------------------
+## STEP 3: SET UP POWERAPPS CANVAS APP
+
+a. Go to make.powerapps.com
+b. Create a new Canvas App (blank, tablet or phone layout)
+c. Add a new screen for each use case
+d. Add the controls listed at the top of each PowerApps_Formulas.txt file
+e. Connect each Cloud Flow:
+   - Go to Data (left panel) > Add data > Search "Power Automate"
+   - Add each Cloud Flow (PC_CreatePolicyNote, PC_CreateActivity, etc.)
+f. Copy/paste the formulas from each PowerApps_Formulas.txt into the
+   appropriate control properties in PowerApps Studio
+g. Save and publish the app
+
+--------------------------------------------------------------------------------
+## STEP 4: TEST EACH FLOW
+
+Test order (least risky to most risky):
+
+1. Screen Scrape — read-only, safe to run anytime
+2. Iterate Policy Terms — read-only
+3. Create Note — low risk
+4. Create Activity — low risk
+5. Update Trailing Documents — moderate (modifies document status)
+6. Add Mortgagee Clause — moderate (creates a change transaction)
+7. Update Mortgagee Clause — moderate
+8. Policy Change — high (creates binding transactions — test on test policies)
+9. Cancel Policy — high (irreversible — test on test policies ONLY)
+10. Bulk Producer Change — high (affects multiple policies)
+
+--------------------------------------------------------------------------------
+## FOLDER STRUCTURE REFERENCE
+
+policycenter/
+├── shared/
+│   ├── COPILOT_CONTEXT_PROMPT.txt   ← paste into Copilot for AI assistance
+│   └── SETUP_GUIDE.txt              ← this file
+├── create-note/                      ← existing use case (00)
+├── 01-screen-scrape/
+├── 02-create-activity/
+├── 03-policy-change/
+├── 04-cancel-policy/
+├── 05-iterate-policy-terms/
+├── 06-bulk-producer-change/
+├── 07-mortgagee-clause/
+└── 08-trailing-documents/
+
+Each folder contains:
+  PAD_[Name].txt                      ← paste into Power Automate Desktop
+  CloudFlow_[Name].json               ← reference for building Cloud Flow
+  PowerApps_[Name]_Formulas.txt       ← copy/paste formulas into PowerApps
+
+--------------------------------------------------------------------------------
+## GETTING HELP AT WORK (WITHOUT CLAUDE CODE)
+
+Option A — Microsoft Copilot in PowerApps Studio:
+  - Click the Copilot button (sparkle icon) in PowerApps Studio
+  - Paste the contents of COPILOT_CONTEXT_PROMPT.txt first
+  - Then ask your question
+
+Option B — M365 Copilot Chat:
+  - Open Copilot at copilot.microsoft.com
+  - Paste the context prompt, then ask
+
+Option C — Glean:
+  - Upload this entire folder to SharePoint/OneDrive (Glean will index it)
+  - Search for the use case you need, then ask Glean's AI for implementation help
+
+================================================================================
+END OF SETUP GUIDE
+================================================================================

@@ -1,0 +1,31 @@
+# PowerApps - Policy Change
+# CONTROLS: txtPolicyNumber, dateEffectiveDate, txtChangeDescription, btnSubmit, lblStatus, lblJobNumber
+
+# -- dateEffectiveDate DefaultDate --
+Today()
+
+# -- btnSubmit OnSelect --
+If(
+    IsBlank(txtPolicyNumber.Text),
+    UpdateContext({varStatusMessage: "Policy Number is required."}),
+    UpdateContext({varIsLoading: true, varStatusMessage: "", varJobNumber: ""});
+    Set(
+        varResult,
+        PC_PolicyChange.Run(
+            txtPolicyNumber.Text,
+            Text(dateEffectiveDate.SelectedDate, "mm/dd/yyyy"),
+            txtChangeDescription.Text
+        )
+    );
+    UpdateContext({
+        varIsLoading: false,
+        varStatusMessage: varResult.Result,
+        varJobNumber: varResult.JobNumber
+    })
+);
+
+# -- lblJobNumber Text --
+If(Not(IsBlank(varJobNumber)), "Job #: " & varJobNumber, "")
+
+# -- lblStatus Color --
+If(StartsWith(varStatusMessage, "Success"), RGBA(0,128,0,1), RGBA(200,0,0,1))

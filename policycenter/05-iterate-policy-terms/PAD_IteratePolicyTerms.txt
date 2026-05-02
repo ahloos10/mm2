@@ -1,0 +1,82 @@
+# Power Automate Desktop Flow: Iterate All Policy Terms and Extract Details
+#
+# INPUT VARIABLES:
+#   PolicyNumber   - Text
+#   PCBaseURL      - Text
+#
+# OUTPUT VARIABLES:
+#   TermsJSON      - Text (JSON array of all terms with key details)
+#
+# DESCRIPTION:
+#   Navigates to a policy, reads the term history list, and for each term
+#   captures: term number, effective date, expiration date, premium, status,
+#   and transaction type. Returns all terms as a JSON array.
+
+# -- STEP 1: Launch and navigate to policy --
+WebBrowser.Launch BrowserType: WebBrowser.BrowserType.Chrome Url: $'''%PCBaseURL%''' WindowState: WebBrowser.WindowState.Maximized ClearCache: False ClearCookies: False WaitForPageToLoad: True PopupsHandling: WebBrowser.PopupWindowHandling.DoNotHandle BrowserInstance=> BrowserInstance
+
+WebBrowser.GoToWebPage Browser: BrowserInstance Url: $'''%PCBaseURL%/PolicyFile.do''' WaitForPageToLoad: True
+WebAutomation.PopulateTextField BrowserInstance: BrowserInstance Control: appmask['PolicySearch_PolicyNumber'] Text: PolicyNumber SimulateTyping: False UnfocusAfterPopulate: False WaitForPageToLoad: False
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['PolicySearch_SearchButton'] WaitForPageToLoad: True
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['PolicySearch_FirstResult'] WaitForPageToLoad: True
+
+# -- STEP 2: Navigate to Policy Info or History tab (contains term list) --
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['Policy_HistoryTab'] WaitForPageToLoad: True
+
+# -- STEP 3: Extract the terms table via JavaScript --
+# PolicyCenter renders terms as table rows. JavaScript is the most reliable
+# way to extract a structured list without recording each row individually.
+WebAutomation.ExecuteJavascript BrowserInstance: BrowserInstance Javascript: $'''
+    var rows = document.querySelectorAll('[id*="PolicyTerms"] tr, [class*="term"] tr, table tr');
+    var terms = [];
+    rows.forEach(function(row) {
+        var cells = row.querySelectorAll('td');
+        if (cells.length >= 3) {
+            terms.push({
+                termNumber:    cells[0] ? cells[0].innerText.trim() : "",
+                effectiveDate: cells[1] ? cells[1].innerText.trim() : "",
+                expirationDate:cells[2] ? cells[2].innerText.trim() : "",
+                premium:       cells[3] ? cells[3].innerText.trim() : "",
+                status:        cells[4] ? cells[4].innerText.trim() : "",
+                txnType:       cells[5] ? cells[5].innerText.trim() : ""
+            });
+        }
+    });
+    return JSON.stringify(terms);
+''' Result=> TermsJSON
+
+# -- STEP 4: If JS approach not feasible, use PAD loop over table rows --
+# Alternative: capture row count, then loop and read each row
+#
+# WebAutomation.GetDetailsOfElement BrowserInstance: BrowserInstance Control: appmask['TermsTable_RowCount'] Attribute: $'''innertext''' AttributeValue=> RowCountRaw
+# Variables.Set Name: RowCount Value: %RowCountRaw%
+# Variables.Set Name: TermIndex Value: 1
+# Variables.Set Name: TermsJSON Value: $'''['''
+# Variables.Set Name: FirstRow Value: True
+#
+# LOOP TermIndex <= RowCount
+#     WebAutomation.GetDetailsOfElement BrowserInstance: BrowserInstance Control: appmask['TermsTable_Row%TermIndex%_EffDate'] Attribute: $'''innertext''' AttributeValue=> EffDate
+#     WebAutomation.GetDetailsOfElement BrowserInstance: BrowserInstance Control: appmask['TermsTable_Row%TermIndex%_ExpDate'] Attribute: $'''innertext''' AttributeValue=> ExpDate
+#     WebAutomation.GetDetailsOfElement BrowserInstance: BrowserInstance Control: appmask['TermsTable_Row%TermIndex%_Premium'] Attribute: $'''innertext''' AttributeValue=> Premium
+#     WebAutomation.GetDetailsOfElement BrowserInstance: BrowserInstance Control: appmask['TermsTable_Row%TermIndex%_Status'] Attribute: $'''innertext''' AttributeValue=> Status
+#     IF FirstRow = False THEN
+#         Variables.Set Name: TermsJSON Value: $'''%TermsJSON%,'''
+#     END
+#     Variables.Set Name: TermsJSON Value: $'''%TermsJSON%{"term":%TermIndex%,"effectiveDate":"%EffDate%","expirationDate":"%ExpDate%","premium":"%Premium%","status":"%Status%"}'''
+#     Variables.Increase Name: TermIndex IncrementValue: 1
+#     Variables.Set Name: FirstRow Value: False
+# END
+# Variables.Set Name: TermsJSON Value: $'''%TermsJSON%]'''
+
+ON BLOCK ERROR
+    Variables.Set Name: TermsJSON Value: $'''{"error":"%LastError%"}'''
+END
+
+
+# ELEMENT NOTES:
+#   History tab:       tab labeled "History" or "Policy History" on the policy file
+#   Terms table:       the grid showing all terms; adjust the JS querySelector to match
+#                      your PC version's table ID or class (inspect the page in DevTools)
+#   Column order:      may vary by PC version/LOB — adjust cell index in the JS accordingly
+#   Drill-in detail:   to get full detail for each term, add a loop that clicks each term
+#                      row link and scrapes the term detail screen, then navigates back

@@ -1,0 +1,69 @@
+# Power Automate Desktop Flow: Cancel a Policy in PolicyCenter
+#
+# INPUT VARIABLES:
+#   PolicyNumber          - Text
+#   CancellationReason    - Text (e.g. "Insured Request", "Non-Payment", "Underwriting")
+#   CancellationSource    - Text (e.g. "Insured", "Carrier", "Agency")
+#   EffectiveDate         - Text (MM/DD/YYYY)
+#   RefundMethod          - Text (e.g. "Pro Rata", "Short Rate", "Flat")
+#   PCBaseURL             - Text
+#
+# OUTPUT VARIABLES:
+#   Result                - Text ("Success: [JobNumber]" or error)
+#   JobNumber             - Text
+
+# -- STEP 1: Launch and navigate to policy --
+WebBrowser.Launch BrowserType: WebBrowser.BrowserType.Chrome Url: $'''%PCBaseURL%''' WindowState: WebBrowser.WindowState.Maximized ClearCache: False ClearCookies: False WaitForPageToLoad: True PopupsHandling: WebBrowser.PopupWindowHandling.DoNotHandle BrowserInstance=> BrowserInstance
+
+WebBrowser.GoToWebPage Browser: BrowserInstance Url: $'''%PCBaseURL%/PolicyFile.do''' WaitForPageToLoad: True
+WebAutomation.PopulateTextField BrowserInstance: BrowserInstance Control: appmask['PolicySearch_PolicyNumber'] Text: PolicyNumber SimulateTyping: False UnfocusAfterPopulate: False WaitForPageToLoad: False
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['PolicySearch_SearchButton'] WaitForPageToLoad: True
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['PolicySearch_FirstResult'] WaitForPageToLoad: True
+
+# -- STEP 2: Open Cancel Policy from Actions menu --
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['Policy_ActionsMenu'] WaitForPageToLoad: False
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['Actions_CancelPolicy'] WaitForPageToLoad: True
+
+# -- STEP 3: Fill in Cancellation Details --
+# Cancellation Source
+WebAutomation.SelectOption BrowserInstance: BrowserInstance Control: appmask['Cancel_SourceDropdown'] Option: CancellationSource WaitForPageToLoad: False
+
+# Cancellation Reason
+WebAutomation.SelectOption BrowserInstance: BrowserInstance Control: appmask['Cancel_ReasonDropdown'] Option: CancellationReason WaitForPageToLoad: False
+
+# Effective Date
+WebAutomation.PopulateTextField BrowserInstance: BrowserInstance Control: appmask['Cancel_EffectiveDateField'] Text: EffectiveDate SimulateTyping: True UnfocusAfterPopulate: True WaitForPageToLoad: False
+
+# Refund Method
+WebAutomation.SelectOption BrowserInstance: BrowserInstance Control: appmask['Cancel_RefundMethodDropdown'] Option: RefundMethod WaitForPageToLoad: False
+
+# -- STEP 4: Click Next / Start Cancellation --
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['Cancel_NextButton'] WaitForPageToLoad: True
+
+# -- STEP 5: Capture Job Number --
+WebAutomation.GetDetailsOfElement BrowserInstance: BrowserInstance Control: appmask['Cancel_JobNumber'] Attribute: $'''innertext''' AttributeValue=> JobNumber
+
+# -- STEP 6: Quote the Cancellation --
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['Cancel_QuoteButton'] WaitForPageToLoad: True
+
+# -- STEP 7: Bind the Cancellation --
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['Cancel_BindButton'] WaitForPageToLoad: True
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['BindConfirm_OKButton'] WaitForPageToLoad: True
+
+Variables.Set Name: Result Value: $'''Success: %JobNumber%'''
+
+ON BLOCK ERROR
+    Variables.Set Name: Result Value: $'''Error: %LastError%'''
+    Variables.Set Name: JobNumber Value: $''''''
+END
+
+
+# ELEMENT NOTES:
+#   Actions > Cancel Policy: may be labeled "Cancel Policy" or "Cancellation"
+#   Source dropdown:         "Insured", "Agency", "Carrier" — matches PC lookup values exactly
+#   Reason dropdown:         values depend on your PC configuration/LOB
+#   Effective date:          use SimulateTyping: True for date picker fields
+#   Refund method:           "Pro Rata", "Short Rate", "Flat" — must match PC dropdown values
+#   Next/Start button:       may be labeled "Next", "Start", or "Continue"
+#   Quote button:            in cancellation wizard sidebar
+#   Bind confirmation:       PC may show a warning about rescission period — handle the dialog

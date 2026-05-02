@@ -1,0 +1,8 @@
+{
+  "name": "PC_CreateActivity",
+  "trigger": { "type": "PowerApps", "inputs": { "PolicyNumber": "string", "ActivityType": "string", "ActivitySubject": "string", "ActivityDesc": "string", "DueDate": "string", "AssignedTo": "string" } },
+  "steps": [
+    { "step": 1, "action": "Run a flow built with Power Automate Desktop", "flow": "PAD_CreateActivity", "inputs": { "PolicyNumber": "@triggerBody()['PolicyNumber']", "ActivityType": "@triggerBody()['ActivityType']", "ActivitySubject": "@triggerBody()['ActivitySubject']", "ActivityDesc": "@triggerBody()['ActivityDesc']", "DueDate": "@triggerBody()['DueDate']", "AssignedTo": "@triggerBody()['AssignedTo']", "PCBaseURL": "@parameters('PCBaseURL')" } },
+    { "step": 2, "action": "Respond to PowerApps", "outputs": { "Result": "@outputs('Run_PAD_CreateActivity')?['body/Result']" } }
+  ]
+}

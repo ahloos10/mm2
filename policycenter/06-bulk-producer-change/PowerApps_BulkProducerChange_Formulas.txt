@@ -1,0 +1,55 @@
+# PowerApps - Bulk Producer Change
+# CONTROLS: txtPolicyList (multiline - one policy per line), txtNewProducer,
+#           txtNewProducerCode, dateEffective, btnRun, galResults, lblStatus
+
+# -- btnRun OnSelect --
+# Convert the multiline text input into a JSON array for the flow
+Set(
+    varPolicyArray,
+    Concat(
+        ForAll(
+            Split(txtPolicyList.Text, Char(10)),
+            If(Not(IsBlank(Trim(Value))), """" & Trim(Value) & """", "")
+        ),
+        If(Not(IsBlank(Value)), Value & ",", "")
+    )
+);
+Set(varPolicyJSON, "[" & Left(varPolicyArray, Len(varPolicyArray)-1) & "]");
+
+UpdateContext({varIsLoading: true, varStatusMessage: ""});
+Set(
+    varBulkResult,
+    PC_BulkProducerChange.Run(
+        varPolicyJSON,
+        txtNewProducer.Text,
+        txtNewProducerCode.Text,
+        Text(dateEffective.SelectedDate, "mm/dd/yyyy")
+    )
+);
+Set(
+    varResultsData,
+    ForAll(
+        Table(ParseJSON(varBulkResult.ResultsJSON)),
+        { Policy: Text(ThisRecord.policy), Status: Text(ThisRecord.status), Message: Text(ThisRecord.message) }
+    )
+);
+UpdateContext({
+    varIsLoading: false,
+    varStatusMessage: CountRows(Filter(varResultsData, Status="Success")) & " succeeded, " &
+                      CountRows(Filter(varResultsData, Status<>"Success")) & " failed."
+});
+
+# -- galResults Items --
+varResultsData
+
+# -- lblPolicy (in gallery) Text --
+ThisItem.Policy
+
+# -- lblStatus (in gallery) Text --
+ThisItem.Status
+
+# -- lblStatus (in gallery) Color --
+If(ThisItem.Status = "Success", RGBA(0,128,0,1), RGBA(200,0,0,1))
+
+# -- lblMessage (in gallery) Text (error detail) --
+If(ThisItem.Status <> "Success", ThisItem.Message, "")

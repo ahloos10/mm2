@@ -1,0 +1,54 @@
+{
+  "name": "PC_CreatePolicyNote",
+  "description": "Triggered by PowerApps. Passes note inputs to the PAD desktop flow and returns the result.",
+  "trigger": {
+    "type": "PowerApps",
+    "inputs": {
+      "PolicyNumber": "string",
+      "NoteSubject": "string",
+      "NoteBody": "string",
+      "NoteTopic": "string"
+    }
+  },
+  "steps": [
+    {
+      "step": 1,
+      "action": "Initialize Variable",
+      "name": "var_Result",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "step": 2,
+      "action": "Run a flow built with Power Automate Desktop",
+      "name": "Run PAD Flow",
+      "flow": "PAD_CreatePolicyNote",
+      "inputs": {
+        "PolicyNumber": "@triggerBody()['PolicyNumber']",
+        "NoteSubject": "@triggerBody()['NoteSubject']",
+        "NoteBody": "@triggerBody()['NoteBody']",
+        "NoteTopic": "@triggerBody()['NoteTopic']",
+        "PCBaseURL": "https://YOUR_COMPANY.guidewire.net/pc"
+      },
+      "runMode": "Attended or Unattended",
+      "note": "Set PCBaseURL as an environment variable in your solution instead of hardcoding it here."
+    },
+    {
+      "step": 3,
+      "action": "Set Variable",
+      "name": "var_Result",
+      "value": "@outputs('Run_PAD_Flow')?['body/Result']"
+    },
+    {
+      "step": 4,
+      "action": "Respond to PowerApps",
+      "outputs": {
+        "Result": "@variables('var_Result')"
+      }
+    }
+  ],
+  "errorHandling": {
+    "scope": "Run PAD Flow",
+    "onFailure": "Respond to PowerApps with Result = 'Flow execution failed: @{workflow()['run']['error']['message']}'"
+  }
+}

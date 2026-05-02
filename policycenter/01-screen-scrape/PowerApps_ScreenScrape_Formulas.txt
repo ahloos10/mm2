@@ -1,0 +1,46 @@
+# PowerApps - Screen Scrape Results Viewer
+# Screen: ScreenScrapeScreen
+#
+# CONTROLS:
+#   txtPolicyNumber     TextInput
+#   btnScrape           Button
+#   galResults          Gallery (vertical)
+#   lblStatus           Label
+#   lblTab              Label (in gallery)
+#   lblField            Label (in gallery)
+#   lblValue            Label (in gallery)
+
+# -- btnScrape OnSelect --
+UpdateContext({varIsLoading: true, varStatusMessage: ""});
+Set(
+    varScrapeResult,
+    PC_ScreenScrape.Run(txtPolicyNumber.Text)
+);
+Set(
+    varParsedData,
+    ForAll(
+        Table(ParseJSON(varScrapeResult.ScrapedDataJSON)),
+        {
+            Tab: Text(ThisRecord.tab),
+            Field: Text(ThisRecord.field),
+            Value: Text(ThisRecord.value)
+        }
+    )
+);
+UpdateContext({varIsLoading: false, varStatusMessage: "Scrape complete. " & CountRows(varParsedData) & " fields captured."});
+
+# -- galResults Items --
+varParsedData
+
+# -- lblTab Text (in gallery) --
+ThisItem.Tab
+
+# -- lblField Text (in gallery) --
+ThisItem.Field
+
+# -- lblValue Text (in gallery) --
+ThisItem.Value
+
+# -- Export to CSV (optional button OnSelect) --
+# Requires a flow that accepts the JSON and writes to SharePoint/OneDrive
+Set(varExportResult, PC_ExportToCSV.Run(varScrapeResult.ScrapedDataJSON));

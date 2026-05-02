@@ -1,0 +1,284 @@
+# PowerApps — All Screen Formulas
+# Each screen follows the same layout pattern:
+#
+#   cmpHeader           (Header Component — top 64px)
+#   rectBackground      (fills remaining screen, Secondary color)
+#   rectCard            (white card, centered, holds all inputs)
+#   [input controls]
+#   btnSubmit
+#   lblStatus
+#   spinnerOverlay      (optional — visible when varIsLoading)
+#
+# Standard card dimensions (tablet 1366x768):
+#   Card: X:32  Y:80  Width:Parent.Width-64  Height:Parent.Height-96
+#
+# Copy the pattern below for each screen, swapping the flow call and controls.
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+# ───────────────────────────────────────────────────────────────────────────
+# SCREEN: CreateNoteScreen
+# ───────────────────────────────────────────────────────────────────────────
+# cmpHeader.ScreenTitle = "Create Note"
+# cmpHeader.PolicyNumber = varActivePolicyNumber
+
+# txtNoteSubject
+# HintText: "Subject"   X:48  Y:112  Width:600  Height:40
+
+# ddlNoteTopic
+# Items: ["General","Underwriting","Billing","Claims","Compliance","Other"]
+# X:48  Y:164  Width:280  Height:40
+
+# txtNoteBody
+# HintText: "Note text..."  Mode: Multiline
+# X:48  Y:216  Width:800  Height:120
+
+# btnSubmit OnSelect:
+If(IsBlank(txtNoteSubject.Text) || IsBlank(txtNoteBody.Text),
+    Notify("Subject and Note are required.", NotificationType.Warning),
+    Set(varIsLoading,true);
+    Set(varResult, PC_CreatePolicyNote.Run(varActivePolicyNumber, txtNoteSubject.Text, txtNoteBody.Text, ddlNoteTopic.Selected.Value));
+    Set(varIsLoading,false);
+    Notify(varResult.Result, If(StartsWith(varResult.Result,"Success"), NotificationType.Success, NotificationType.Error))
+);
+
+
+# ───────────────────────────────────────────────────────────────────────────
+# SCREEN: ScreenScrapeScreen
+# ───────────────────────────────────────────────────────────────────────────
+# cmpHeader.ScreenTitle = "Screen Scrape"
+
+# btnRunScrape OnSelect:
+Set(varIsLoading,true);
+Set(varScrapeResult, PC_ScreenScrape.Run(varActivePolicyNumber));
+Set(varScrapeData,
+    ForAll(Table(ParseJSON(varScrapeResult.ScrapedDataJSON)),
+        {Tab: Text(ThisRecord.tab), Field: Text(ThisRecord.field), Value: Text(ThisRecord.value)}
+    )
+);
+Set(varIsLoading,false);
+Notify(CountRows(varScrapeData) & " fields captured.", NotificationType.Success);
+
+# galScrapeResults Items: varScrapeData
+# lblTab:   ThisItem.Tab    lblField: ThisItem.Field    lblValue: ThisItem.Value
+
+# ddlFilterTab (filter gallery by tab)
+# Items: Distinct(varScrapeData, Tab)
+# galScrapeResults Items (filtered):
+Filter(varScrapeData, Tab = ddlFilterTab.Selected.Value || ddlFilterTab.Selected.Value = "All")
+
+
+# ───────────────────────────────────────────────────────────────────────────
+# SCREEN: CreateActivityScreen
+# ───────────────────────────────────────────────────────────────────────────
+# cmpHeader.ScreenTitle = "Create Activity"
+
+# ddlActivityType Items: ["General Activity","Follow Up","Phone Call","Email","Review","Other"]
+# txtSubject    HintText: "Subject"
+# txtDesc       HintText: "Description"  Multiline
+# dateDueDate   DefaultDate: Today()+7
+# txtAssignedTo HintText: "Assign to (optional)"
+
+# btnSubmit OnSelect:
+If(IsBlank(txtSubject.Text),
+    Notify("Subject is required.", NotificationType.Warning),
+    Set(varIsLoading,true);
+    Set(varResult, PC_CreateActivity.Run(varActivePolicyNumber, ddlActivityType.Selected.Value, txtSubject.Text, txtDesc.Text, Text(dateDueDate.SelectedDate,"mm/dd/yyyy"), txtAssignedTo.Text));
+    Set(varIsLoading,false);
+    Notify(varResult.Result, If(StartsWith(varResult.Result,"Success"), NotificationType.Success, NotificationType.Error))
+);
+
+
+# ───────────────────────────────────────────────────────────────────────────
+# SCREEN: PolicyChangeScreen
+# ───────────────────────────────────────────────────────────────────────────
+# cmpHeader.ScreenTitle = "Policy Change"
+
+# dateEffective   DefaultDate: Today()
+# txtChangeDesc   HintText: "Description of change"  Multiline
+
+# lblWarning
+# Text: "⚠ This will create a binding policy change transaction."
+# Color: First(colTheme).Danger   Size:12
+
+# btnSubmit OnSelect:
+Set(varIsLoading,true);
+Set(varResult, PC_PolicyChange.Run(varActivePolicyNumber, Text(dateEffective.SelectedDate,"mm/dd/yyyy"), txtChangeDesc.Text));
+Set(varIsLoading,false);
+Notify(varResult.Result, If(StartsWith(varResult.Result,"Success"), NotificationType.Success, NotificationType.Error));
+If(StartsWith(varResult.Result,"Success"), Set(varLastJobNumber, varResult.JobNumber));
+
+# lblJobNumber  Text: If(Not(IsBlank(varLastJobNumber)), "Job #: " & varLastJobNumber, "")
+
+
+# ───────────────────────────────────────────────────────────────────────────
+# SCREEN: CancelPolicyScreen
+# ───────────────────────────────────────────────────────────────────────────
+# cmpHeader.ScreenTitle = "Cancel Policy"
+
+# ddlSource   Items: ["Insured","Agency","Carrier"]
+# ddlReason   Items: ["Insured Request","Non-Payment","Underwriting","Fraud","Other"]
+# dateEffective
+# ddlRefund   Items: ["Pro Rata","Short Rate","Flat"]
+
+# rectDangerBanner
+# Fill: RGBA(255,235,233,1)  BorderColor: First(colTheme).Danger  BorderThickness:1
+# Y: above submit button
+
+# lblDangerWarning
+# Text: "⚠ IRREVERSIBLE — This will cancel the policy. Confirm all details before submitting."
+# Color: First(colTheme).Danger  Size:12
+
+# btnSubmit
+# Fill: First(colTheme).Danger  Color:White
+# Text: "Cancel Policy"
+# OnSelect:
+If(
+    Not(varCancelConfirmed),
+    UpdateContext({varCancelConfirmed: true});
+    Notify("Tap Cancel Policy again to confirm.", NotificationType.Warning),
+    // second tap — confirmed
+    Set(varIsLoading,true);
+    Set(varResult, PC_CancelPolicy.Run(varActivePolicyNumber, ddlReason.Selected.Value, ddlSource.Selected.Value, Text(dateEffective.SelectedDate,"mm/dd/yyyy"), ddlRefund.Selected.Value));
+    Set(varIsLoading,false);
+    UpdateContext({varCancelConfirmed: false});
+    Notify(varResult.Result, If(StartsWith(varResult.Result,"Success"), NotificationType.Success, NotificationType.Error))
+);
+
+# btnSubmit Text:
+If(varCancelConfirmed, "⚠ Confirm Cancel", "Cancel Policy")
+
+
+# ───────────────────────────────────────────────────────────────────────────
+# SCREEN: PolicyTermsScreen
+# ───────────────────────────────────────────────────────────────────────────
+# cmpHeader.ScreenTitle = "Policy Terms"
+
+# btnLoadTerms OnSelect:
+Set(varIsLoading,true);
+Set(varTermsResult, PC_IteratePolicyTerms.Run(varActivePolicyNumber));
+Set(varTermsData,
+    ForAll(Table(ParseJSON(varTermsResult.TermsJSON)),
+        {TermNumber: Text(ThisRecord.termNumber), EffDate: Text(ThisRecord.effectiveDate),
+         ExpDate: Text(ThisRecord.expirationDate), Premium: Text(ThisRecord.premium),
+         Status: Text(ThisRecord.status), TxnType: Text(ThisRecord.txnType)}
+    )
+);
+Set(varIsLoading,false);
+Notify(CountRows(varTermsData) & " terms loaded.", NotificationType.Success);
+
+# galTerms Items: varTermsData
+# Columns: Term #, Eff Date, Exp Date, Premium, Status, Txn Type
+# lblTermStatus Color:
+If(ThisItem.Status="Active", First(colTheme).Success,
+   ThisItem.Status="Cancelled", First(colTheme).Danger,
+   First(colTheme).TextSecondary)
+
+
+# ───────────────────────────────────────────────────────────────────────────
+# SCREEN: BulkProducerScreen
+# ───────────────────────────────────────────────────────────────────────────
+# cmpHeader.ScreenTitle = "Bulk Producer Change"
+
+# txtPolicyList    HintText: "One policy number per line"  Multiline  Height:160
+# txtNewProducer   HintText: "New Producer Name (must match PolicyCenter exactly)"
+# txtProducerCode  HintText: "Producer Code"
+# dateEffective
+
+# lblPolicyCount
+# Text: CountRows(Split(txtPolicyList.Text, Char(10))) & " policies entered"
+# Color: First(colTheme).TextSecondary  Size:11
+
+# btnRun OnSelect:
+Set(varPolicyArray,
+    Concat(ForAll(Split(txtPolicyList.Text,Char(10)),
+        If(Not(IsBlank(Trim(Result))), """" & Trim(Result) & """,", "")
+    ), Value)
+);
+Set(varPolicyJSON, "[" & Left(varPolicyArray,Len(varPolicyArray)-1) & "]");
+Set(varIsLoading,true);
+Set(varBulkResult, PC_BulkProducerChange.Run(varPolicyJSON, txtNewProducer.Text, txtProducerCode.Text, Text(dateEffective.SelectedDate,"mm/dd/yyyy")));
+Set(varBulkData,
+    ForAll(Table(ParseJSON(varBulkResult.ResultsJSON)),
+        {Policy: Text(ThisRecord.policy), Status: Text(ThisRecord.status), Message: Text(ThisRecord.message)}
+    )
+);
+Set(varIsLoading,false);
+Notify(
+    CountRows(Filter(varBulkData,Status="Success")) & " succeeded, " & CountRows(Filter(varBulkData,Status<>"Success")) & " failed.",
+    If(CountRows(Filter(varBulkData,Status<>"Success"))=0, NotificationType.Success, NotificationType.Warning)
+);
+
+# galBulkResults Items: varBulkData
+# lblPolicy: ThisItem.Policy
+# lblStatus Color: If(ThisItem.Status="Success", First(colTheme).Success, First(colTheme).Danger)
+# lblMessage: If(ThisItem.Status<>"Success", ThisItem.Message, "")
+
+
+# ───────────────────────────────────────────────────────────────────────────
+# SCREEN: MortgageeScreen
+# ───────────────────────────────────────────────────────────────────────────
+# cmpHeader.ScreenTitle = "Mortgagee Clause"
+
+# ddlAction       Items: ["Add","Update","Remove"]
+# ddlRank         Items: ["First","Second","Third"]
+# txtMortgageeName HintText: "Lender Name"
+# txtAddress1      HintText: "Address Line 1"
+# txtAddress2      HintText: "Address Line 2 (optional)"
+# txtCity          HintText: "City"
+# ddlState         Items: ["AL","AK","AZ",...all states...]
+# txtZip           HintText: "ZIP"
+# txtLoanNumber    HintText: "Loan Number (optional)"
+# dateEffective
+
+# Address fields Visible: ddlAction.Selected.Value <> "Remove"
+
+# btnSubmit OnSelect:
+Set(varIsLoading,true);
+Set(varResult, PC_MortgageeClause.Run(
+    varActivePolicyNumber, ddlAction.Selected.Value, txtMortgageeName.Text,
+    txtAddress1.Text, txtAddress2.Text, txtCity.Text, ddlState.Selected.Value,
+    txtZip.Text, txtLoanNumber.Text, ddlRank.Selected.Value,
+    Text(dateEffective.SelectedDate,"mm/dd/yyyy")
+));
+Set(varIsLoading,false);
+Notify(varResult.Result, If(StartsWith(varResult.Result,"Success"), NotificationType.Success, NotificationType.Error));
+
+
+# ───────────────────────────────────────────────────────────────────────────
+# SCREEN: TrailingDocsScreen
+# ───────────────────────────────────────────────────────────────────────────
+# cmpHeader.ScreenTitle = "Trailing Documents"
+
+# txtDocName      HintText: "Document Name (must match PolicyCenter exactly)"
+# ddlStatus       Items: ["Received","Waived","Pending","Not Required","Requested"]
+# dateReceived    Visible: ddlStatus.Selected.Value = "Received"  DefaultDate: Today()
+# txtNotes        HintText: "Notes (optional)"  Multiline
+
+# btnSubmit OnSelect:
+If(IsBlank(txtDocName.Text),
+    Notify("Document Name is required.", NotificationType.Warning),
+    Set(varIsLoading,true);
+    Set(varResult, PC_TrailingDocuments.Run(
+        varActivePolicyNumber, txtDocName.Text, ddlStatus.Selected.Value,
+        If(ddlStatus.Selected.Value="Received", Text(dateReceived.SelectedDate,"mm/dd/yyyy"), ""),
+        txtNotes.Text
+    ));
+    Set(varIsLoading,false);
+    Notify(varResult.Result, If(StartsWith(varResult.Result,"Success"), NotificationType.Success, NotificationType.Error))
+);
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SHARED SPINNER OVERLAY (add to every screen)
+# ═══════════════════════════════════════════════════════════════════════════
+# rectSpinnerOverlay
+# X:0  Y:0  Width:Parent.Width  Height:Parent.Height
+# Fill: RGBA(0,0,0,0.4)
+# Visible: varIsLoading
+
+# lblSpinnerText
+# Text: "Running automation..."
+# X:Parent.Width/2-100  Y:Parent.Height/2-20  Width:200  Height:40
+# Color:White  Size:14  Align:Center
+# Visible: varIsLoading

@@ -1,0 +1,86 @@
+# Power Automate Desktop Flow: Create Policy Note in PolicyCenter
+#
+# INPUT VARIABLES (set these as inputs in the flow):
+#   PolicyNumber   - Text
+#   NoteSubject    - Text
+#   NoteBody       - Text
+#   NoteTopic      - Text (e.g. "General", "Underwriting", "Billing")
+#   PCBaseURL      - Text (e.g. https://yourcompany.guidewire.net/pc)
+#
+# OUTPUT VARIABLES:
+#   Result         - Text ("Success" or error message)
+#
+# PREREQUISITES:
+#   - User is already logged into PolicyCenter in Chrome, OR
+#     update the Launch step to include login automation
+#   - Element selectors below are TEMPLATES — capture your own
+#     using the PAD Element Recorder after pasting this script
+
+# ── STEP 1: Attach to existing browser or launch new session ──────────────
+
+WebBrowser.Launch BrowserType: WebBrowser.BrowserType.Chrome Url: $'''%PCBaseURL%''' WindowState: WebBrowser.WindowState.Maximized ClearCache: False ClearCookies: False WaitForPageToLoad: True PopupsHandling: WebBrowser.PopupWindowHandling.DoNotHandle BrowserInstance=> BrowserInstance
+
+# ── STEP 2: Search for Policy ─────────────────────────────────────────────
+# Navigate to policy search. Adjust the URL path for your PC version.
+
+WebBrowser.GoToWebPage Browser: BrowserInstance Url: $'''%PCBaseURL%/PolicyFile.do''' WaitForPageToLoad: True
+
+# Click the Search/Policy Number field and type the policy number
+# REPLACE the CSS selector below with one captured from your PC instance
+
+WebAutomation.Focus.FocusTextfield BrowserInstance: BrowserInstance Control: appmask['PolicySearch_PolicyNumber'] WaitForPageToLoad: True
+WebAutomation.PopulateTextField BrowserInstance: BrowserInstance Control: appmask['PolicySearch_PolicyNumber'] Text: PolicyNumber SimulateTyping: False UnfocusAfterPopulate: False WaitForPageToLoad: True
+
+# Click Search button
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['PolicySearch_SearchButton'] WaitForPageToLoad: True
+
+# Click the first result matching the policy number
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['PolicySearch_FirstResult'] WaitForPageToLoad: True
+
+# ── STEP 3: Navigate to Notes Tab ────────────────────────────────────────
+
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['Policy_NotesTab'] WaitForPageToLoad: True
+
+# ── STEP 4: Click New Note ────────────────────────────────────────────────
+
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['Notes_NewButton'] WaitForPageToLoad: True
+
+# ── STEP 5: Fill in Note Fields ───────────────────────────────────────────
+
+# Set Topic dropdown
+WebAutomation.SelectOption BrowserInstance: BrowserInstance Control: appmask['NewNote_TopicDropdown'] Option: NoteTopic WaitForPageToLoad: False
+
+# Set Subject
+WebAutomation.PopulateTextField BrowserInstance: BrowserInstance Control: appmask['NewNote_SubjectField'] Text: NoteSubject SimulateTyping: False UnfocusAfterPopulate: False WaitForPageToLoad: False
+
+# Set Note Body/Text
+WebAutomation.PopulateTextField BrowserInstance: BrowserInstance Control: appmask['NewNote_BodyField'] Text: NoteBody SimulateTyping: False UnfocusAfterPopulate: False WaitForPageToLoad: False
+
+# ── STEP 6: Save the Note ─────────────────────────────────────────────────
+
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['NewNote_OKButton'] WaitForPageToLoad: True
+
+# ── STEP 7: Confirm success and set output ────────────────────────────────
+
+Variables.Set Name: Result Value: $'''Success'''
+
+ON BLOCK ERROR
+    Variables.Set Name: Result Value: $'''Error: %LastError%'''
+END
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# ELEMENT CAPTURE GUIDE
+# After pasting this into PAD, use the Element Recorder (Ctrl+Shift+A)
+# to capture real selectors and replace the appmask[] placeholders above.
+#
+# Typical PolicyCenter element patterns to look for:
+#   PolicySearch field:  input[name*="PolicyNumber"] or id contains "PolicyNumber"
+#   Search button:       button or input[value="Search"]
+#   Notes tab:           a or li containing text "Notes"
+#   New note button:     button containing "New" near notes toolbar
+#   Topic dropdown:      select[id*="topic" i]
+#   Subject field:       input[id*="subject" i]
+#   Body/text field:     textarea[id*="body" i] or [id*="text" i]
+#   OK/Save button:      button[id*="ok" i] or input[value="OK"]
+# ──────────────────────────────────────────────────────────────────────────

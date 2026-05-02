@@ -1,0 +1,8 @@
+{
+  "name": "PC_CancelPolicy",
+  "trigger": { "type": "PowerApps", "inputs": { "PolicyNumber": "string", "CancellationReason": "string", "CancellationSource": "string", "EffectiveDate": "string", "RefundMethod": "string" } },
+  "steps": [
+    { "step": 1, "action": "Run a flow built with Power Automate Desktop", "flow": "PAD_CancelPolicy", "inputs": { "PolicyNumber": "@triggerBody()['PolicyNumber']", "CancellationReason": "@triggerBody()['CancellationReason']", "CancellationSource": "@triggerBody()['CancellationSource']", "EffectiveDate": "@triggerBody()['EffectiveDate']", "RefundMethod": "@triggerBody()['RefundMethod']", "PCBaseURL": "@parameters('PCBaseURL')" } },
+    { "step": 2, "action": "Respond to PowerApps", "outputs": { "Result": "@outputs('Run_PAD_CancelPolicy')?['body/Result']", "JobNumber": "@outputs('Run_PAD_CancelPolicy')?['body/JobNumber']" } }
+  ]
+}

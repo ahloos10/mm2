@@ -1,0 +1,34 @@
+# PowerApps - Create Activity
+# CONTROLS: txtPolicyNumber, ddlActivityType, txtSubject, txtDescription,
+#            dateDueDate, txtAssignedTo, btnSubmit, lblStatus
+
+# -- ddlActivityType Items --
+["General Activity", "Follow Up", "Phone Call", "Email", "Review", "Other"]
+
+# -- dateDueDate DefaultDate --
+Today() + 7
+
+# -- btnSubmit OnSelect --
+If(
+    IsBlank(txtPolicyNumber.Text) || IsBlank(txtSubject.Text),
+    UpdateContext({varStatusMessage: "Policy Number and Subject are required."}),
+    UpdateContext({varIsLoading: true, varStatusMessage: ""});
+    Set(
+        varResult,
+        PC_CreateActivity.Run(
+            txtPolicyNumber.Text,
+            ddlActivityType.Selected.Value,
+            txtSubject.Text,
+            txtDescription.Text,
+            Text(dateDueDate.SelectedDate, "mm/dd/yyyy"),
+            txtAssignedTo.Text
+        )
+    );
+    UpdateContext({varIsLoading: false, varStatusMessage: varResult.Result})
+);
+
+# -- lblStatus Text --
+varStatusMessage
+
+# -- lblStatus Color --
+If(StartsWith(varStatusMessage, "Success"), RGBA(0,128,0,1), RGBA(200,0,0,1))

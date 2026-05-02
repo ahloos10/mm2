@@ -1,0 +1,86 @@
+# Power Automate Desktop Flow: Update Trailing Documents
+#
+# INPUT VARIABLES:
+#   PolicyNumber      - Text
+#   DocumentName      - Text (name/description of the document to update)
+#   NewStatus         - Text (e.g. "Received", "Waived", "Pending", "Not Required")
+#   ReceivedDate      - Text (MM/DD/YYYY — used when status is "Received")
+#   Notes             - Text (optional notes on the document)
+#   PCBaseURL         - Text
+#
+# OUTPUT VARIABLES:
+#   Result            - Text ("Success" or error message)
+#
+# DESCRIPTION:
+#   Navigates to a policy's Documents or Forms section, finds the trailing
+#   document requirement matching DocumentName, and updates its status
+#   and received date. Trailing docs in PC are typically found under
+#   the "Documents" tab or the "Forms" section of the policy.
+
+# -- STEP 1: Launch and navigate to policy --
+WebBrowser.Launch BrowserType: WebBrowser.BrowserType.Chrome Url: $'''%PCBaseURL%''' WindowState: WebBrowser.WindowState.Maximized ClearCache: False ClearCookies: False WaitForPageToLoad: True PopupsHandling: WebBrowser.PopupWindowHandling.DoNotHandle BrowserInstance=> BrowserInstance
+
+WebBrowser.GoToWebPage Browser: BrowserInstance Url: $'''%PCBaseURL%/PolicyFile.do''' WaitForPageToLoad: True
+WebAutomation.PopulateTextField BrowserInstance: BrowserInstance Control: appmask['PolicySearch_PolicyNumber'] Text: PolicyNumber SimulateTyping: False UnfocusAfterPopulate: False WaitForPageToLoad: False
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['PolicySearch_SearchButton'] WaitForPageToLoad: True
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['PolicySearch_FirstResult'] WaitForPageToLoad: True
+
+# -- STEP 2: Navigate to Documents / Forms tab --
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['Policy_DocumentsTab'] WaitForPageToLoad: True
+
+# -- STEP 3: Find the document row by name using JavaScript --
+# Use JS to locate the row index of the matching document
+WebAutomation.ExecuteJavascript BrowserInstance: BrowserInstance Javascript: $'''
+    var rows = document.querySelectorAll("table tr");
+    var targetIndex = -1;
+    rows.forEach(function(row, index) {
+        if (row.innerText.indexOf("%DocumentName%") > -1) {
+            targetIndex = index;
+        }
+    });
+    return String(targetIndex);
+''' Result=> RowIndexStr
+
+# Check if document was found
+IF RowIndexStr = $'''-1''' THEN
+    Variables.Set Name: Result Value: $'''Error: Document "%DocumentName%" not found on policy'''
+ELSE
+    # -- STEP 4: Click the edit button on the matching row --
+    WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['Documents_Row_%RowIndexStr%_EditButton'] WaitForPageToLoad: True
+
+    # -- STEP 5: Update the Status dropdown --
+    WebAutomation.SelectOption BrowserInstance: BrowserInstance Control: appmask['Document_StatusDropdown'] Option: NewStatus WaitForPageToLoad: False
+
+    # -- STEP 6: Set Received Date if status is Received --
+    IF NewStatus = $'''Received''' THEN
+        WebAutomation.PopulateTextField BrowserInstance: BrowserInstance Control: appmask['Document_ReceivedDateField'] Text: ReceivedDate SimulateTyping: True UnfocusAfterPopulate: True WaitForPageToLoad: False
+    END
+
+    # -- STEP 7: Add notes if provided --
+    IF Notes <> $'''''' THEN
+        WebAutomation.PopulateTextField BrowserInstance: BrowserInstance Control: appmask['Document_NotesField'] Text: Notes SimulateTyping: False UnfocusAfterPopulate: False WaitForPageToLoad: False
+    END
+
+    # -- STEP 8: Save --
+    WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['Document_OKButton'] WaitForPageToLoad: True
+
+    Variables.Set Name: Result Value: $'''Success'''
+END
+
+ON BLOCK ERROR
+    Variables.Set Name: Result Value: $'''Error: %LastError%'''
+END
+
+
+# ELEMENT NOTES:
+#   Documents tab:         "Documents" or "Forms" tab on the policy file page
+#   Trailing doc table:    a grid listing required/trailing documents and their status
+#   Row edit button:       each row has an edit icon; because rows are dynamic, use the
+#                          JS row index approach above or record each doc's edit button
+#                          individually in the element recorder
+#   Status dropdown:       "Received", "Waived", "Pending", "Not Required", "Requested"
+#                          — values must match your PC configuration exactly
+#   Received date:         only relevant when status = "Received"
+#   Alternative approach:  if trailing docs are inside a transaction (e.g. bound policy)
+#                          rather than the policy file, start a policy change first, then
+#                          navigate to the forms/docs section within the change wizard

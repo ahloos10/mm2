@@ -1,0 +1,46 @@
+# PowerApps - Iterate Policy Terms
+# CONTROLS: txtPolicyNumber, btnLoad, galTerms, lblTermCount, lblStatus
+# Gallery columns: Term #, Effective Date, Expiration Date, Premium, Status, Txn Type
+
+# -- btnLoad OnSelect --
+UpdateContext({varIsLoading: true, varStatusMessage: ""});
+Set(varTermsResult, PC_IteratePolicyTerms.Run(txtPolicyNumber.Text));
+Set(
+    varTermsData,
+    ForAll(
+        Table(ParseJSON(varTermsResult.TermsJSON)),
+        {
+            TermNumber:     Text(ThisRecord.termNumber),
+            EffectiveDate:  Text(ThisRecord.effectiveDate),
+            ExpirationDate: Text(ThisRecord.expirationDate),
+            Premium:        Text(ThisRecord.premium),
+            Status:         Text(ThisRecord.status),
+            TxnType:        Text(ThisRecord.txnType)
+        }
+    )
+);
+UpdateContext({varIsLoading: false, varStatusMessage: "Loaded " & CountRows(varTermsData) & " terms."});
+
+# -- galTerms Items --
+varTermsData
+
+# -- lblTermNumber (in gallery) Text --
+ThisItem.TermNumber
+
+# -- lblEffDate (in gallery) Text --
+ThisItem.EffectiveDate
+
+# -- lblExpDate (in gallery) Text --
+ThisItem.ExpirationDate
+
+# -- lblPremium (in gallery) Text --
+ThisItem.Premium
+
+# -- lblStatus (in gallery) Text --
+ThisItem.Status
+
+# -- lblTxnType (in gallery) Text --
+ThisItem.TxnType
+
+# -- lblTermCount Text --
+"Terms found: " & CountRows(varTermsData)
