@@ -1,1 +1,51 @@
-404: Not Found
+# PowerApps — Header Component (Reusable)
+# Create this as a Component: Insert > New Component > name it "cmpHeader"
+#
+# COMPONENT CUSTOM PROPERTIES (add in Component > New custom property):
+#   ScreenTitle     Input  Text     default: "Screen Title"
+#   ShowBack        Input  Boolean  default: true
+#   PolicyNumber    Input  Text     default: ""
+#
+# CONTROLS INSIDE THE COMPONENT:
+
+# rectHeaderBg
+# X:0  Y:0  Width:Parent.Width  Height:64
+# Fill: First(colTheme).Primary
+
+# btnBack  (only visible when ShowBack = true)
+# X:8  Y:12  Width:40  Height:40
+# Text:        "‹"
+# Size:        24  Color:White
+# Visible:     cmpHeader.ShowBack
+# Fill:        RGBA(0,0,0,0)  (transparent)
+# BorderColor: RGBA(0,0,0,0)
+# OnSelect:    Back()
+
+# lblScreenTitle
+# Text:        cmpHeader.ScreenTitle
+# X:  If(cmpHeader.ShowBack, 54, 16)
+# Y:0  Width:500  Height:64
+# Color:       RGBA(255,255,255,1)
+# Size:        16  FontWeight:Bold
+
+# lblPolicyBadge  (shows active policy number in header)
+# Text:        If(Not(IsBlank(cmpHeader.PolicyNumber)), "Policy: " & cmpHeader.PolicyNumber, "")
+# X:Parent.Width-220  Y:0  Width:210  Height:64
+# Color:       RGBA(200,225,255,1)
+# Size:        11  Align:Right
+
+# btnHome
+# Text:        "⌂"
+# X:Parent.Width-48  Y:12  Width:40  Height:40
+# Size:        20  Color:White
+# Fill:        RGBA(0,0,0,0)
+# BorderColor: RGBA(0,0,0,0)
+# OnSelect:    Navigate(HomeScreen, ScreenTransition.Fade)
+
+# ── HOW TO USE ON EACH SCREEN ─────────────────────────────────────────────
+# 1. Insert > Custom > cmpHeader
+# 2. Set X:0  Y:0  Width:Parent.Width  Height:64
+# 3. Set properties:
+#    cmpHeader.ScreenTitle = "Create Note"  (or whatever the screen title is)
+#    cmpHeader.ShowBack    = true
+#    cmpHeader.PolicyNumber = varActivePolicyNumber
