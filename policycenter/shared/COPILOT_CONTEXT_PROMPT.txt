@@ -1,0 +1,127 @@
+================================================================================
+POLICYCENTER AUTOMATION PROJECT — COPILOT CONTEXT PROMPT
+================================================================================
+Paste this entire document into Microsoft Copilot (PowerApps, M365, or Glean)
+at the start of a session to give it full context of this project.
+================================================================================
+
+## PROJECT OVERVIEW
+
+I am building a Power Platform automation suite to interface with Guidewire
+PolicyCenter (an insurance policy administration system). The solution uses:
+
+- PowerApps Canvas App: front-end UI for triggering automations
+- Power Automate Cloud Flows: orchestration layer triggered by PowerApps
+- Power Automate Desktop (PAD) Flows: browser automation against PolicyCenter
+
+The architecture is always: PowerApps → Cloud Flow → Desktop Flow → PolicyCenter
+
+## TECHNOLOGY CONSTRAINTS
+
+- Stay within Microsoft Power Platform only (PowerApps + Power Automate Cloud + PAD)
+- No Glean, no third-party tools, no direct API calls unless PolicyCenter REST is available
+- PAD flows run on a machine with the Power Automate Desktop agent installed
+- The PolicyCenter base URL is stored as a Cloud Flow environment parameter: PCBaseURL
+
+## COMPLETED USE CASES
+
+Each use case has three files: PAD script, Cloud Flow JSON reference, PowerApps formulas.
+
+### 00 - Create Policy Note
+- Flow: PC_CreatePolicyNote
+- Inputs: PolicyNumber, NoteSubject, NoteBody, NoteTopic
+- Output: Result (Success/Error)
+- PAD: Searches policy, navigates to Notes tab, clicks New, fills fields, saves
+
+### 01 - Screen Scrape All Fields
+- Flow: PC_ScreenScrape
+- Inputs: PolicyNumber
+- Output: ScrapedDataJSON (JSON array of {tab, field, value})
+- PAD: Iterates all policy tabs, extracts labels and values via JS injection
+
+### 02 - Create Activity
+- Flow: PC_CreateActivity
+- Inputs: PolicyNumber, ActivityType, ActivitySubject, ActivityDesc, DueDate, AssignedTo
+- Output: Result
+- PAD: Navigates to Activities tab, creates new activity, fills all fields, saves
+
+### 03 - Policy Change (Endorsement)
+- Flow: PC_PolicyChange
+- Inputs: PolicyNumber, EffectiveDate, ChangeDescription
+- Output: Result, JobNumber
+- PAD: Opens Actions > Policy Change, sets effective date, captures job number,
+        quotes and binds. EXTEND step 6 for field-level changes.
+
+### 04 - Cancel Policy
+- Flow: PC_CancelPolicy
+- Inputs: PolicyNumber, CancellationReason, CancellationSource, EffectiveDate, RefundMethod
+- Output: Result, JobNumber
+- PAD: Actions > Cancel Policy, fills reason/source/date/refund, quotes, binds
+
+### 05 - Iterate Policy Terms
+- Flow: PC_IteratePolicyTerms
+- Inputs: PolicyNumber
+- Output: TermsJSON (array of {termNumber, effectiveDate, expirationDate, premium, status, txnType})
+- PAD: Navigates to History tab, uses JS to extract all term rows from the table
+
+### 06 - Bulk Producer Change
+- Flow: PC_BulkProducerChange
+- Inputs: PolicyListJSON (JSON array of policy numbers), NewProducerName, NewProducerCode, EffectiveDate
+- Output: ResultsJSON (per-policy success/failure array)
+- PAD: Loops through each policy, starts a change, updates the producer field, binds
+
+### 07 - Mortgagee Clause (Add / Update / Remove)
+- Flow: PC_MortgageeClause
+- Inputs: PolicyNumber, Action (Add/Update/Remove), MortgageeName, MortgageeAddress1,
+          MortgageeAddress2, MortgageeCity, MortgageeState, MortgageeZip, LoanNumber,
+          MortgageeRank (First/Second/Third), EffectiveDate
+- Output: Result, JobNumber
+- PAD: Starts a policy change, navigates to mortgagee section, branches on action
+
+### 08 - Update Trailing Documents
+- Flow: PC_TrailingDocuments
+- Inputs: PolicyNumber, DocumentName, NewStatus, ReceivedDate, Notes
+- Output: Result
+- PAD: Navigates to Documents tab, finds the row by document name via JS,
+        updates status/date/notes, saves
+
+## PAD SCRIPT CONVENTIONS USED THROUGHOUT
+
+- All flows use appmask[] placeholders for element selectors
+  → These must be replaced with real selectors captured via PAD Element Recorder (Ctrl+Shift+A)
+- JavaScript injection via WebAutomation.ExecuteJavascript is used for dynamic table extraction
+- Error handling: ON BLOCK ERROR sets Result = "Error: %LastError%"
+- PCBaseURL is always a flow input — never hardcoded
+- Date fields use SimulateTyping: True to handle datepicker controls
+
+## POWERAPPS CONVENTIONS USED THROUGHOUT
+
+- varIsLoading: Boolean context variable — disables submit button during flow execution
+- varStatusMessage: Text context variable — displays success/error to user
+- varJobNumber: Text variable — returned for change transactions
+- Flow results accessed via .Run() and the returned object properties
+- ParseJSON() used to convert JSON output into Gallery-bindable collections
+- Status label color: RGBA(0,128,0,1) for Success, RGBA(200,0,0,1) for errors
+
+## KNOWN GAPS / THINGS TO COMPLETE AT WORK
+
+1. Replace ALL appmask[] placeholders with real element selectors from your PC instance
+2. Verify tab names match your PolicyCenter configuration (Cloud vs On-Prem may differ)
+3. Set the PCBaseURL environment variable in your Power Platform solution
+4. Configure the PAD machine/gateway connection in Power Automate Cloud
+5. Test each flow in attended mode before switching to unattended
+6. The Policy Change flow (03) has a placeholder "EXTEND step 6" for field-level edits
+
+## HOW TO ASK COPILOT FOR HELP
+
+When working with Copilot on this project, use prompts like:
+
+- "Using the architecture above, add a new use case for [X] in PolicyCenter"
+- "Extend the Policy Change PAD script to also update the insured address"
+- "Fix the PowerApps formula for the Bulk Producer Change gallery"
+- "Add error retry logic to the Create Activity PAD flow"
+- "Create a new screen in the PowerApps app that combines Create Note and Create Activity"
+
+================================================================================
+END OF CONTEXT PROMPT
+================================================================================

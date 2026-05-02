@@ -1,0 +1,91 @@
+# Power Automate Desktop Flow: Bulk Producer Change
+#
+# INPUT VARIABLES:
+#   PolicyListJSON    - Text (JSON array of policy numbers: ["POL001","POL002",...])
+#   NewProducerCode   - Text (the producer/agency code to assign)
+#   NewProducerName   - Text (used to select from lookup; must match PC exactly)
+#   EffectiveDate     - Text (MM/DD/YYYY)
+#   PCBaseURL         - Text
+#
+# OUTPUT VARIABLES:
+#   ResultsJSON       - Text (JSON array with per-policy success/failure results)
+#
+# DESCRIPTION:
+#   Parses the input list of policy numbers and for each one initiates a
+#   policy change, navigates to the producer/agent section, updates the
+#   producer, and binds the change. Results are collected per policy.
+
+# -- STEP 1: Launch browser --
+WebBrowser.Launch BrowserType: WebBrowser.BrowserType.Chrome Url: $'''%PCBaseURL%''' WindowState: WebBrowser.WindowState.Maximized ClearCache: False ClearCookies: False WaitForPageToLoad: True PopupsHandling: WebBrowser.PopupWindowHandling.DoNotHandle BrowserInstance=> BrowserInstance
+
+# -- STEP 2: Parse the policy list from JSON --
+Variables.Set Name: ResultsJSON Value: $'''['''
+Variables.Set Name: FirstResult Value: True
+
+# Convert JSON array string to a PAD list
+# Use JavaScript in browser to avoid needing a JSON parse action
+# Alternatively split on comma after stripping brackets (simple approach below)
+Text.Replace Text: PolicyListJSON SearchString: $'''[''' ReplaceWith: $'''''' IgnoreCase: False Result=> Stripped
+Text.Replace Text: Stripped SearchString: $''']''' ReplaceWith: $'''''' IgnoreCase: False Result=> Stripped
+Text.Replace Text: Stripped SearchString: $'''"''' ReplaceWith: $'''''' IgnoreCase: False Result=> Stripped
+Text.Split Text: Stripped Delimiter: $''',''' Result=> PolicyList
+
+# -- STEP 3: Loop through each policy --
+LOOP FOREACH PolicyNumber IN PolicyList
+    Text.Trim Text: PolicyNumber Result=> PolicyNumber
+
+    # Navigate to policy search
+    WebBrowser.GoToWebPage Browser: BrowserInstance Url: $'''%PCBaseURL%/PolicyFile.do''' WaitForPageToLoad: True
+    WebAutomation.PopulateTextField BrowserInstance: BrowserInstance Control: appmask['PolicySearch_PolicyNumber'] Text: PolicyNumber SimulateTyping: False UnfocusAfterPopulate: False WaitForPageToLoad: False
+    WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['PolicySearch_SearchButton'] WaitForPageToLoad: True
+    WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['PolicySearch_FirstResult'] WaitForPageToLoad: True
+
+    # Start a policy change
+    WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['Policy_ActionsMenu'] WaitForPageToLoad: False
+    WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['Actions_PolicyChange'] WaitForPageToLoad: True
+    WebAutomation.PopulateTextField BrowserInstance: BrowserInstance Control: appmask['StartChange_EffectiveDateField'] Text: EffectiveDate SimulateTyping: True UnfocusAfterPopulate: True WaitForPageToLoad: False
+    WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['StartChange_StartButton'] WaitForPageToLoad: True
+
+    # Navigate to Policy Info section where producer is set
+    WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['Change_PolicyInfoTab'] WaitForPageToLoad: True
+
+    # Clear existing producer and type new one
+    WebAutomation.PopulateTextField BrowserInstance: BrowserInstance Control: appmask['PolicyInfo_ProducerField'] Text: $'''''' SimulateTyping: False UnfocusAfterPopulate: False WaitForPageToLoad: False
+    WebAutomation.PopulateTextField BrowserInstance: BrowserInstance Control: appmask['PolicyInfo_ProducerField'] Text: NewProducerName SimulateTyping: True UnfocusAfterPopulate: False WaitForPageToLoad: False
+
+    # Wait for autocomplete suggestion and click it
+    Wait 1
+    WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['PolicyInfo_ProducerSuggestion'] WaitForPageToLoad: False
+
+    # Quote and bind
+    WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['Change_QuoteButton'] WaitForPageToLoad: True
+    WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['Change_BindButton'] WaitForPageToLoad: True
+    WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['BindConfirm_OKButton'] WaitForPageToLoad: True
+
+    Variables.Set Name: PolicyResult Value: $'''{"policy":"%PolicyNumber%","status":"Success"}'''
+
+    ON BLOCK ERROR
+        Variables.Set Name: PolicyResult Value: $'''{"policy":"%PolicyNumber%","status":"Error","message":"%LastError%"}'''
+    END
+
+    IF FirstResult = False THEN
+        Variables.Set Name: ResultsJSON Value: $'''%ResultsJSON%,'''
+    END
+    Variables.Set Name: ResultsJSON Value: $'''%ResultsJSON%%PolicyResult%'''
+    Variables.Set Name: FirstResult Value: False
+END
+
+Variables.Set Name: ResultsJSON Value: $'''%ResultsJSON%]'''
+
+ON BLOCK ERROR
+    Variables.Set Name: ResultsJSON Value: $'''[{"status":"Fatal Error","message":"%LastError%"}]'''
+END
+
+
+# ELEMENT NOTES:
+#   Producer field:        may be labeled "Producer", "Agency", or "Agent"
+#                          Often a lookup/typeahead — type partial name and wait for dropdown
+#   Producer suggestion:   the first suggestion item in the autocomplete list
+#   Policy Info tab:       within the change transaction wizard, not the main policy tabs
+#   Per-policy error handling: the ON BLOCK ERROR inside the loop catches per-policy failures
+#                              and continues to the next policy rather than aborting the batch

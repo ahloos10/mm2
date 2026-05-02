@@ -1,0 +1,99 @@
+# Power Automate Desktop Flow: Add / Update / Remove a Mortgagee Clause
+#
+# INPUT VARIABLES:
+#   PolicyNumber        - Text
+#   Action              - Text ("Add", "Update", "Remove")
+#   MortgageeName       - Text (lender name)
+#   MortgageeAddress1   - Text
+#   MortgageeAddress2   - Text (optional)
+#   MortgageeCity       - Text
+#   MortgageeState      - Text (2-letter abbreviation)
+#   MortgageeZip        - Text
+#   LoanNumber          - Text (optional)
+#   MortgageeRank       - Text ("First", "Second", "Third" — for identifying which to update/remove)
+#   EffectiveDate       - Text (MM/DD/YYYY — for the policy change)
+#   PCBaseURL           - Text
+#
+# OUTPUT VARIABLES:
+#   Result              - Text ("Success: [JobNumber]" or error)
+#   JobNumber           - Text
+
+# -- STEP 1: Launch and navigate to policy --
+WebBrowser.Launch BrowserType: WebBrowser.BrowserType.Chrome Url: $'''%PCBaseURL%''' WindowState: WebBrowser.WindowState.Maximized ClearCache: False ClearCookies: False WaitForPageToLoad: True PopupsHandling: WebBrowser.PopupWindowHandling.DoNotHandle BrowserInstance=> BrowserInstance
+
+WebBrowser.GoToWebPage Browser: BrowserInstance Url: $'''%PCBaseURL%/PolicyFile.do''' WaitForPageToLoad: True
+WebAutomation.PopulateTextField BrowserInstance: BrowserInstance Control: appmask['PolicySearch_PolicyNumber'] Text: PolicyNumber SimulateTyping: False UnfocusAfterPopulate: False WaitForPageToLoad: False
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['PolicySearch_SearchButton'] WaitForPageToLoad: True
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['PolicySearch_FirstResult'] WaitForPageToLoad: True
+
+# -- STEP 2: Start a Policy Change --
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['Policy_ActionsMenu'] WaitForPageToLoad: False
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['Actions_PolicyChange'] WaitForPageToLoad: True
+WebAutomation.PopulateTextField BrowserInstance: BrowserInstance Control: appmask['StartChange_EffectiveDateField'] Text: EffectiveDate SimulateTyping: True UnfocusAfterPopulate: True WaitForPageToLoad: False
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['StartChange_StartButton'] WaitForPageToLoad: True
+
+# Capture job number
+WebAutomation.GetDetailsOfElement BrowserInstance: BrowserInstance Control: appmask['Change_JobNumber'] Attribute: $'''innertext''' AttributeValue=> JobNumber
+
+# -- STEP 3: Navigate to Mortgagee / Additional Interests section --
+# In PC this is typically under Property > Mortgage or Coverages > Additional Interests
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['Change_PropertyTab'] WaitForPageToLoad: True
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['Property_MortgageeSection'] WaitForPageToLoad: True
+
+# -- STEP 4: Branch on Action --
+IF Action = $'''Add''' THEN
+    # Click Add Mortgagee button
+    WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['Mortgagee_AddButton'] WaitForPageToLoad: True
+
+    # Fill mortgagee details
+    WebAutomation.PopulateTextField BrowserInstance: BrowserInstance Control: appmask['Mortgagee_NameField'] Text: MortgageeName SimulateTyping: False UnfocusAfterPopulate: False WaitForPageToLoad: False
+    WebAutomation.PopulateTextField BrowserInstance: BrowserInstance Control: appmask['Mortgagee_Address1Field'] Text: MortgageeAddress1 SimulateTyping: False UnfocusAfterPopulate: False WaitForPageToLoad: False
+    WebAutomation.PopulateTextField BrowserInstance: BrowserInstance Control: appmask['Mortgagee_Address2Field'] Text: MortgageeAddress2 SimulateTyping: False UnfocusAfterPopulate: False WaitForPageToLoad: False
+    WebAutomation.PopulateTextField BrowserInstance: BrowserInstance Control: appmask['Mortgagee_CityField'] Text: MortgageeCity SimulateTyping: False UnfocusAfterPopulate: False WaitForPageToLoad: False
+    WebAutomation.SelectOption BrowserInstance: BrowserInstance Control: appmask['Mortgagee_StateDropdown'] Option: MortgageeState WaitForPageToLoad: False
+    WebAutomation.PopulateTextField BrowserInstance: BrowserInstance Control: appmask['Mortgagee_ZipField'] Text: MortgageeZip SimulateTyping: False UnfocusAfterPopulate: False WaitForPageToLoad: False
+    WebAutomation.PopulateTextField BrowserInstance: BrowserInstance Control: appmask['Mortgagee_LoanNumberField'] Text: LoanNumber SimulateTyping: False UnfocusAfterPopulate: False WaitForPageToLoad: False
+    WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['Mortgagee_OKButton'] WaitForPageToLoad: True
+
+ELSE IF Action = $'''Update''' THEN
+    # Find the existing mortgagee row by rank/position and click edit
+    WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['Mortgagee_Row_%MortgageeRank%_EditButton'] WaitForPageToLoad: True
+
+    # Update fields (clear and retype)
+    WebAutomation.PopulateTextField BrowserInstance: BrowserInstance Control: appmask['Mortgagee_NameField'] Text: MortgageeName SimulateTyping: False UnfocusAfterPopulate: False WaitForPageToLoad: False
+    WebAutomation.PopulateTextField BrowserInstance: BrowserInstance Control: appmask['Mortgagee_Address1Field'] Text: MortgageeAddress1 SimulateTyping: False UnfocusAfterPopulate: False WaitForPageToLoad: False
+    WebAutomation.PopulateTextField BrowserInstance: BrowserInstance Control: appmask['Mortgagee_CityField'] Text: MortgageeCity SimulateTyping: False UnfocusAfterPopulate: False WaitForPageToLoad: False
+    WebAutomation.SelectOption BrowserInstance: BrowserInstance Control: appmask['Mortgagee_StateDropdown'] Option: MortgageeState WaitForPageToLoad: False
+    WebAutomation.PopulateTextField BrowserInstance: BrowserInstance Control: appmask['Mortgagee_ZipField'] Text: MortgageeZip SimulateTyping: False UnfocusAfterPopulate: False WaitForPageToLoad: False
+    WebAutomation.PopulateTextField BrowserInstance: BrowserInstance Control: appmask['Mortgagee_LoanNumberField'] Text: LoanNumber SimulateTyping: False UnfocusAfterPopulate: False WaitForPageToLoad: False
+    WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['Mortgagee_OKButton'] WaitForPageToLoad: True
+
+ELSE IF Action = $'''Remove''' THEN
+    # Find the mortgagee row and click its delete/remove button
+    WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['Mortgagee_Row_%MortgageeRank%_RemoveButton'] WaitForPageToLoad: True
+    # Confirm removal dialog if present
+    WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['RemoveConfirm_OKButton'] WaitForPageToLoad: True
+END
+
+# -- STEP 5: Quote and Bind --
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['Change_QuoteButton'] WaitForPageToLoad: True
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['Change_BindButton'] WaitForPageToLoad: True
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['BindConfirm_OKButton'] WaitForPageToLoad: True
+
+Variables.Set Name: Result Value: $'''Success: %JobNumber%'''
+
+ON BLOCK ERROR
+    Variables.Set Name: Result Value: $'''Error: %LastError%'''
+    Variables.Set Name: JobNumber Value: $''''''
+END
+
+
+# ELEMENT NOTES:
+#   Mortgagee section:    may be under "Property" tab > "Mortgagees" subsection,
+#                         or "Coverages" > "Additional Interests" depending on LOB
+#   Add button:           "+ Add" or "New Mortgagee" near the mortgagee list
+#   Edit button per row:  each row in the mortgagee list has an edit icon/link
+#   Remove button:        trash icon or "Remove" link per row
+#   Rank:                 "First", "Second" etc. — used to identify which row to target
+#                         in the element recorder, capture each row's edit button separately
+#   Loan number field:    may be optional/hidden — handle gracefully if not present

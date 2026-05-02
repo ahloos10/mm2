@@ -1,0 +1,35 @@
+{
+  "name": "PC_IteratePolicyTerms",
+  "trigger": { "type": "PowerApps", "inputs": { "PolicyNumber": "string" } },
+  "steps": [
+    { "step": 1, "action": "Run a flow built with Power Automate Desktop", "flow": "PAD_IteratePolicyTerms", "inputs": { "PolicyNumber": "@triggerBody()['PolicyNumber']", "PCBaseURL": "@parameters('PCBaseURL')" } },
+    {
+      "step": 2,
+      "action": "Parse JSON",
+      "name": "Parse Terms",
+      "content": "@outputs('Run_PAD_IteratePolicyTerms')?['body/TermsJSON']",
+      "schema": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "termNumber":     { "type": "string" },
+            "effectiveDate":  { "type": "string" },
+            "expirationDate": { "type": "string" },
+            "premium":        { "type": "string" },
+            "status":         { "type": "string" },
+            "txnType":        { "type": "string" }
+          }
+        }
+      }
+    },
+    {
+      "step": 3,
+      "action": "Respond to PowerApps",
+      "outputs": {
+        "TermsJSON": "@outputs('Run_PAD_IteratePolicyTerms')?['body/TermsJSON']",
+        "TermCount": "@length(body('Parse_Terms'))"
+      }
+    }
+  ]
+}

@@ -1,0 +1,72 @@
+# Power Automate Desktop Flow: Initiate and Complete a Policy Change (Endorsement)
+#
+# INPUT VARIABLES:
+#   PolicyNumber        - Text
+#   EffectiveDate       - Text (MM/DD/YYYY)
+#   ChangeDescription   - Text (used for the change description/reason field)
+#   PCBaseURL           - Text
+#
+# OUTPUT VARIABLES:
+#   Result              - Text ("Success: [JobNumber]" or error)
+#   JobNumber           - Text (the change transaction job number)
+#
+# NOTE: This flow initiates the change and navigates to the change transaction.
+#       Field-level edits within the change depend on your specific use case
+#       (e.g., coverage update, insured update). Extend STEP 6 for your changes.
+
+# -- STEP 1: Launch and navigate to policy --
+WebBrowser.Launch BrowserType: WebBrowser.BrowserType.Chrome Url: $'''%PCBaseURL%''' WindowState: WebBrowser.WindowState.Maximized ClearCache: False ClearCookies: False WaitForPageToLoad: True PopupsHandling: WebBrowser.PopupWindowHandling.DoNotHandle BrowserInstance=> BrowserInstance
+
+WebBrowser.GoToWebPage Browser: BrowserInstance Url: $'''%PCBaseURL%/PolicyFile.do''' WaitForPageToLoad: True
+WebAutomation.PopulateTextField BrowserInstance: BrowserInstance Control: appmask['PolicySearch_PolicyNumber'] Text: PolicyNumber SimulateTyping: False UnfocusAfterPopulate: False WaitForPageToLoad: False
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['PolicySearch_SearchButton'] WaitForPageToLoad: True
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['PolicySearch_FirstResult'] WaitForPageToLoad: True
+
+# -- STEP 2: Click Policy Change / Start Change Transaction --
+# In PC, this is typically in the Actions menu or a "Change Policy" button
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['Policy_ActionsMenu'] WaitForPageToLoad: False
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['Actions_PolicyChange'] WaitForPageToLoad: True
+
+# -- STEP 3: Set Effective Date on the Start Change dialog --
+WebAutomation.PopulateTextField BrowserInstance: BrowserInstance Control: appmask['StartChange_EffectiveDateField'] Text: EffectiveDate SimulateTyping: True UnfocusAfterPopulate: True WaitForPageToLoad: False
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['StartChange_StartButton'] WaitForPageToLoad: True
+
+# -- STEP 4: Capture the Job Number --
+WebAutomation.GetDetailsOfElement BrowserInstance: BrowserInstance Control: appmask['Change_JobNumber'] Attribute: $'''innertext''' AttributeValue=> JobNumber
+Variables.Set Name: JobNumber Value: %JobNumber%
+
+# -- STEP 5: Enter Change Description (if field exists on your PC version) --
+WebAutomation.PopulateTextField BrowserInstance: BrowserInstance Control: appmask['Change_DescriptionField'] Text: ChangeDescription SimulateTyping: False UnfocusAfterPopulate: False WaitForPageToLoad: False
+
+# -- STEP 6: Make field edits here --
+# !! EXTEND THIS SECTION with your specific change actions !!
+# Example: Update a coverage limit, change an address, add a vehicle, etc.
+# Each sub-use-case (coverage change, insured update, etc.) becomes its own
+# extension of this flow or a separate flow that calls this one first.
+
+# -- STEP 7: Run Quote --
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['Change_QuoteButton'] WaitForPageToLoad: True
+
+# -- STEP 8: Bind the Change --
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['Change_BindButton'] WaitForPageToLoad: True
+
+# Confirm any bind confirmation dialog if present
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['BindConfirm_OKButton'] WaitForPageToLoad: True
+
+Variables.Set Name: Result Value: $'''Success: %JobNumber%'''
+
+ON BLOCK ERROR
+    Variables.Set Name: Result Value: $'''Error: %LastError%'''
+    Variables.Set Name: JobNumber Value: $''''''
+END
+
+
+# ELEMENT NOTES:
+#   Actions menu:          button labeled "Actions" in the policy toolbar
+#   Policy Change item:    menu item "Policy Change" or "Start Change"
+#   Effective date field:  use SimulateTyping: True — date pickers often block direct population
+#   Start button:          "Start" or "OK" on the effective date dialog
+#   Job number:            displayed in the page header; capture before navigating away
+#   Quote button:          in the sidebar or toolbar within the change transaction wizard
+#   Bind button:           appears after quoting; may require scrolling into view
+#   Bind confirmation:     modal dialog asking to confirm — click OK/Bind

@@ -1,0 +1,65 @@
+# Power Automate Desktop Flow: Create an Activity on a Policy in PolicyCenter
+#
+# INPUT VARIABLES:
+#   PolicyNumber      - Text
+#   ActivityType      - Text (e.g. "General Activity", "Follow Up", "Phone Call")
+#   ActivitySubject   - Text
+#   ActivityDesc      - Text
+#   DueDate           - Text (format: MM/DD/YYYY)
+#   AssignedTo        - Text (username or queue name; leave blank to keep default)
+#   PCBaseURL         - Text
+#
+# OUTPUT VARIABLES:
+#   Result            - Text ("Success" or error message)
+
+# -- STEP 1: Launch and navigate to policy --
+WebBrowser.Launch BrowserType: WebBrowser.BrowserType.Chrome Url: $'''%PCBaseURL%''' WindowState: WebBrowser.WindowState.Maximized ClearCache: False ClearCookies: False WaitForPageToLoad: True PopupsHandling: WebBrowser.PopupWindowHandling.DoNotHandle BrowserInstance=> BrowserInstance
+
+WebBrowser.GoToWebPage Browser: BrowserInstance Url: $'''%PCBaseURL%/PolicyFile.do''' WaitForPageToLoad: True
+WebAutomation.PopulateTextField BrowserInstance: BrowserInstance Control: appmask['PolicySearch_PolicyNumber'] Text: PolicyNumber SimulateTyping: False UnfocusAfterPopulate: False WaitForPageToLoad: False
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['PolicySearch_SearchButton'] WaitForPageToLoad: True
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['PolicySearch_FirstResult'] WaitForPageToLoad: True
+
+# -- STEP 2: Navigate to Activities tab --
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['Policy_ActivitiesTab'] WaitForPageToLoad: True
+
+# -- STEP 3: Click New Activity button --
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['Activities_NewButton'] WaitForPageToLoad: True
+
+# -- STEP 4: Select Activity Type --
+# This may open a picker dialog or be an inline dropdown depending on PC version
+WebAutomation.SelectOption BrowserInstance: BrowserInstance Control: appmask['NewActivity_TypeDropdown'] Option: ActivityType WaitForPageToLoad: True
+
+# -- STEP 5: Fill in Subject --
+WebAutomation.PopulateTextField BrowserInstance: BrowserInstance Control: appmask['NewActivity_SubjectField'] Text: ActivitySubject SimulateTyping: False UnfocusAfterPopulate: False WaitForPageToLoad: False
+
+# -- STEP 6: Fill in Description --
+WebAutomation.PopulateTextField BrowserInstance: BrowserInstance Control: appmask['NewActivity_DescriptionField'] Text: ActivityDesc SimulateTyping: False UnfocusAfterPopulate: False WaitForPageToLoad: False
+
+# -- STEP 7: Set Due Date --
+WebAutomation.PopulateTextField BrowserInstance: BrowserInstance Control: appmask['NewActivity_DueDateField'] Text: DueDate SimulateTyping: False UnfocusAfterPopulate: False WaitForPageToLoad: False
+
+# -- STEP 8: Set Assigned To (optional) --
+IF AssignedTo <> $'''''' THEN
+    WebAutomation.PopulateTextField BrowserInstance: BrowserInstance Control: appmask['NewActivity_AssignedToField'] Text: AssignedTo SimulateTyping: False UnfocusAfterPopulate: False WaitForPageToLoad: False
+END
+
+# -- STEP 9: Save the Activity --
+WebAutomation.Click BrowserInstance: BrowserInstance Control: appmask['NewActivity_UpdateButton'] WaitForPageToLoad: True
+
+Variables.Set Name: Result Value: $'''Success'''
+
+ON BLOCK ERROR
+    Variables.Set Name: Result Value: $'''Error: %LastError%'''
+END
+
+
+# ELEMENT NOTES:
+#   Activities tab:        look for text "Activities" in the policy tab bar
+#   New button:            toolbar button labeled "New" above the activities list
+#   Activity type:         may be a dialog with a list picker; record the picker interaction
+#   Subject field:         input near top of new activity form
+#   Description/Notes:     textarea in the activity form
+#   Due date field:        date input; may need SimulateTyping: True if datepicker blocks direct input
+#   Assigned To:           may be a lookup field; type username and wait for suggestion, then click it
+#   Update/Save button:    labeled "Update" or "OK" at bottom of activity form

@@ -1,0 +1,8 @@
+{
+  "name": "PC_MortgageeClause",
+  "trigger": { "type": "PowerApps", "inputs": { "PolicyNumber": "string", "Action": "string", "MortgageeName": "string", "MortgageeAddress1": "string", "MortgageeAddress2": "string", "MortgageeCity": "string", "MortgageeState": "string", "MortgageeZip": "string", "LoanNumber": "string", "MortgageeRank": "string", "EffectiveDate": "string" } },
+  "steps": [
+    { "step": 1, "action": "Run a flow built with Power Automate Desktop", "flow": "PAD_MortgageeClause", "inputs": { "PolicyNumber": "@triggerBody()['PolicyNumber']", "Action": "@triggerBody()['Action']", "MortgageeName": "@triggerBody()['MortgageeName']", "MortgageeAddress1": "@triggerBody()['MortgageeAddress1']", "MortgageeAddress2": "@triggerBody()['MortgageeAddress2']", "MortgageeCity": "@triggerBody()['MortgageeCity']", "MortgageeState": "@triggerBody()['MortgageeState']", "MortgageeZip": "@triggerBody()['MortgageeZip']", "LoanNumber": "@triggerBody()['LoanNumber']", "MortgageeRank": "@triggerBody()['MortgageeRank']", "EffectiveDate": "@triggerBody()['EffectiveDate']", "PCBaseURL": "@parameters('PCBaseURL')" } },
+    { "step": 2, "action": "Respond to PowerApps", "outputs": { "Result": "@outputs('Run_PAD_MortgageeClause')?['body/Result']", "JobNumber": "@outputs('Run_PAD_MortgageeClause')?['body/JobNumber']" } }
+  ]
+}

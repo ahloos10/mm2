@@ -1,0 +1,42 @@
+# PowerApps - Mortgagee Clause (Add / Update / Remove)
+# CONTROLS: txtPolicyNumber, ddlAction, txtMortgageeName, txtAddress1, txtAddress2,
+#           txtCity, ddlState, txtZip, txtLoanNumber, ddlRank, dateEffective, btnSubmit, lblStatus
+
+# -- ddlAction Items --
+["Add", "Update", "Remove"]
+
+# -- ddlRank Items --
+["First", "Second", "Third"]
+
+# -- ddlState Items (abbreviated) --
+["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"]
+
+# -- Address fields Visible (hide for Remove action) --
+ddlAction.Selected.Value <> "Remove"
+
+# -- btnSubmit OnSelect --
+If(
+    IsBlank(txtPolicyNumber.Text) || IsBlank(txtMortgageeName.Text) && ddlAction.Selected.Value <> "Remove",
+    UpdateContext({varStatusMessage: "Policy Number and Mortgagee Name are required."}),
+    UpdateContext({varIsLoading: true, varStatusMessage: ""});
+    Set(
+        varResult,
+        PC_MortgageeClause.Run(
+            txtPolicyNumber.Text,
+            ddlAction.Selected.Value,
+            txtMortgageeName.Text,
+            txtAddress1.Text,
+            txtAddress2.Text,
+            txtCity.Text,
+            ddlState.Selected.Value,
+            txtZip.Text,
+            txtLoanNumber.Text,
+            ddlRank.Selected.Value,
+            Text(dateEffective.SelectedDate, "mm/dd/yyyy")
+        )
+    );
+    UpdateContext({varIsLoading: false, varStatusMessage: varResult.Result, varJobNumber: varResult.JobNumber})
+);
+
+# -- lblStatus Color --
+If(StartsWith(varStatusMessage, "Success"), RGBA(0,128,0,1), RGBA(200,0,0,1))

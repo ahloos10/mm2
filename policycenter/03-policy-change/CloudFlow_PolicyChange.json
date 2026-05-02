@@ -1,0 +1,8 @@
+{
+  "name": "PC_PolicyChange",
+  "trigger": { "type": "PowerApps", "inputs": { "PolicyNumber": "string", "EffectiveDate": "string", "ChangeDescription": "string" } },
+  "steps": [
+    { "step": 1, "action": "Run a flow built with Power Automate Desktop", "flow": "PAD_PolicyChange", "inputs": { "PolicyNumber": "@triggerBody()['PolicyNumber']", "EffectiveDate": "@triggerBody()['EffectiveDate']", "ChangeDescription": "@triggerBody()['ChangeDescription']", "PCBaseURL": "@parameters('PCBaseURL')" } },
+    { "step": 2, "action": "Respond to PowerApps", "outputs": { "Result": "@outputs('Run_PAD_PolicyChange')?['body/Result']", "JobNumber": "@outputs('Run_PAD_PolicyChange')?['body/JobNumber']" } }
+  ]
+}

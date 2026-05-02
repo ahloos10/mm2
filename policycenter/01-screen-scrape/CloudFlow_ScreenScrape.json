@@ -1,0 +1,46 @@
+{
+  "name": "PC_ScreenScrape",
+  "description": "Triggered by PowerApps. Runs PAD screen scrape and returns all field data as JSON.",
+  "trigger": {
+    "type": "PowerApps",
+    "inputs": {
+      "PolicyNumber": "string"
+    }
+  },
+  "steps": [
+    {
+      "step": 1,
+      "action": "Run a flow built with Power Automate Desktop",
+      "name": "Run PAD ScreenScrape",
+      "flow": "PAD_ScreenScrape",
+      "inputs": {
+        "PolicyNumber": "@triggerBody()['PolicyNumber']",
+        "PCBaseURL": "@parameters('PCBaseURL')"
+      }
+    },
+    {
+      "step": 2,
+      "action": "Parse JSON",
+      "name": "Parse Scraped Data",
+      "content": "@outputs('Run_PAD_ScreenScrape')?['body/ScrapedDataJSON']",
+      "schema": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "tab": { "type": "string" },
+            "field": { "type": "string" },
+            "value": { "type": "string" }
+          }
+        }
+      }
+    },
+    {
+      "step": 3,
+      "action": "Respond to PowerApps",
+      "outputs": {
+        "ScrapedDataJSON": "@outputs('Run_PAD_ScreenScrape')?['body/ScrapedDataJSON']"
+      }
+    }
+  ]
+}
