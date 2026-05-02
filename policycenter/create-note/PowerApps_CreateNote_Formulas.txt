@@ -1,0 +1,78 @@
+# PowerApps Canvas App — Create Policy Note
+# Screen: CreateNoteScreen
+#
+# CONTROLS NEEDED:
+#   txtPolicyNumber     TextInput
+#   txtNoteSubject      TextInput
+#   txtNoteBody         TextInput (multiline)
+#   ddlNoteTopic        Dropdown
+#   btnSubmit           Button
+#   lblStatus           Label
+#   spinnerOverlay      (optional) Image or spinner visible during loading
+
+# ── Dropdown: ddlNoteTopic ────────────────────────────────────────────────
+# Items property:
+["General", "Underwriting", "Billing", "Claims", "Compliance", "Other"]
+
+
+# ── Button: btnSubmit ─────────────────────────────────────────────────────
+# DisplayMode property (disable while running):
+If(varIsLoading, DisplayMode.Disabled, DisplayMode.Edit)
+
+# OnSelect property:
+UpdateContext({varIsLoading: true, varStatusMessage: ""});
+
+Set(
+    varFlowResult,
+    PC_CreatePolicyNote.Run(
+        txtPolicyNumber.Text,
+        txtNoteSubject.Text,
+        txtNoteBody.Text,
+        ddlNoteTopic.Selected.Value
+    )
+);
+
+UpdateContext({
+    varIsLoading: false,
+    varStatusMessage: varFlowResult.Result
+});
+
+
+# ── Label: lblStatus ──────────────────────────────────────────────────────
+# Text property:
+varStatusMessage
+
+# Color property (green for success, red for error):
+If(
+    StartsWith(varStatusMessage, "Success"),
+    RGBA(0, 128, 0, 1),
+    RGBA(200, 0, 0, 1)
+)
+
+# Visible property:
+Not(IsBlank(varStatusMessage))
+
+
+# ── Spinner/Overlay (optional) ────────────────────────────────────────────
+# Visible property:
+varIsLoading
+
+
+# ── Input Validation (btnSubmit OnSelect — add before the flow call) ──────
+If(
+    IsBlank(txtPolicyNumber.Text) || IsBlank(txtNoteSubject.Text) || IsBlank(txtNoteBody.Text),
+    UpdateContext({varStatusMessage: "Policy Number, Subject, and Note are required."}),
+
+    // else run the flow
+    UpdateContext({varIsLoading: true, varStatusMessage: ""});
+    Set(varFlowResult, PC_CreatePolicyNote.Run(...));
+    UpdateContext({varIsLoading: false, varStatusMessage: varFlowResult.Result})
+);
+
+
+# ── CONNECTING THE CLOUD FLOW ──────────────────────────────────────────────
+# In PowerApps Studio:
+#   1. Go to Data (left panel) → Add data → Search "Power Automate"
+#   2. Select your cloud flow "PC_CreatePolicyNote"
+#   3. It will appear as PC_CreatePolicyNote in formulas
+#   4. Use .Run(param1, param2, ...) in the order defined in the flow trigger
